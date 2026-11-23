@@ -11,5 +11,6 @@ bin           = @["bonbon"]
 requires "nim >= 2.2.0", "winim >= 3.9.4", "yaml >= 2.0.0"
 
 task test, "Run the unit tests":
-  for f in ["test_urls", "test_opml", "test_requests", "test_pagetext", "test_rtf", "test_workers"]:
+  for f in ["test_urls", "test_opml", "test_requests", "test_pagetext", "test_rtf", "test_workers",
+            "test_shell", "test_server", "test_datafolder", "test_images", "test_rtf_more", "test_misc"]:
     exec "nim c -r --hints:off tests/" & f & ".nim"

@@ -9,7 +9,7 @@
 
 import std/[os, strutils, json, tables, sets, times, math, options]
 import winim/lean, winim/inc/[commctrl, richedit, shellapi, commdlg, winreg]
-import urls, opml, requests, pagetext, rtf, themes, datafolder, workers, images, winutil, bookmarkseditor
+import urls, opml, requests, pagetext, rtf, themes, datafolder, workers, images, winutil, bookmarkseditor, shell
 
 # ---------------------------------------------------------------- ids
 
@@ -80,7 +80,6 @@ const
   timerSocketBase = 100000 ## + the tab's serial, the wait before an update socket opens again
 
   titleNewTab = "New tab"
-  prefixViewSource = "view-source:"
   secsUpdateSocketRetry = 30
   maxTypeaheadRows = 8
   classMain = "BonBonMain"
@@ -418,51 +417,13 @@ proc scrollToAnchor(tab: Tab) =
 # ---------------------------------------------------------------- the site's table of contents
 
 proc getSiteToc(tab: Tab): tuple[ok: bool, urlSearch, urlUpdateSocket: string, subs: seq[OutlineNode]] =
-  ## the part of the domain's table of contents the page is in
-  if tab == nil or tab.toc == nil: return
-  let o = tab.toc
-  result = (true, o.headValue("urlSearch"), o.headValue("urlUpdateSocket"), o.body.subs)
-  if tab.url.len > 0:
-    for node in o.body.subs:
-      if node.att("type") == "include" and node.hasAtt("url"):
-        let u = node.att("url")
-        let urlFolder = u[0 ..< u.rfind("/.well-known/") + 1]
-        if urlFolder.len > 0 and tab.url.startsWith(urlFolder):
-          result = (true, node.att("urlSearch"), node.att("urlUpdateSocket"), node.subs)
+  if tab != nil: getSiteToc(tab.toc, tab.url) else: (false, "", "", @[])
 
-proc getMirrorUrl(tab: Tab, theUrl: string): string =
-  ## a link to a site this domain holds the Markdown version of: that version's address
-  if tab == nil or tab.toc == nil or tab.url.len == 0 or theUrl.len == 0: return ""
-  var mirrors: seq[(string, string)]
-  let o = tab.toc
-  if o.headValue("urlMirrorOf").len > 0:
-    mirrors.add (o.headValue("urlMirrorOf"), urlOrigin(tab.url) & "/")
-  for node in o.body.subs:
-    if node.att("type") == "include" and node.hasAtt("url") and node.att("urlMirrorOf").len > 0:
-      let u = node.att("url")
-      let urlFolder = u[0 ..< u.rfind("/.well-known/") + 1]
-      if urlFolder.len > 0: mirrors.add (node.att("urlMirrorOf"), urlFolder)
-  if not isAbsoluteUrl(theUrl): return ""
-  let hostLink = urlHostname(theUrl).replace("www.", "")
-  let pathLink = urlPath(theUrl)
-  for (mirrorOf, urlFolder) in mirrors:
-    if not isAbsoluteUrl(mirrorOf): continue
-    if hostLink == urlHostname(mirrorOf).replace("www.", "") and pathLink.startsWith(urlPath(mirrorOf)):
-      let thePath = pathLink[urlPath(mirrorOf).len .. ^1]
-      var u = ""
-      if thePath.len == 0 or thePath == "index.html": u = urlFolder
-      elif thePath.endsWith(".html"): u = urlFolder & thePath[0 ..< ^5] & ".md"
-      elif thePath.endsWith("/"): u = urlFolder & thePath
-      if u.len > 0: return u & urlHash(theUrl)
-  ""
+proc getMirrorUrl(tab: Tab, theUrl: string): string = getMirrorUrl(tab.toc, tab.url, theUrl)
 
 proc getSearchUrl(tab: Tab): string = getSiteToc(tab).urlSearch
 
-proc getSearchQuery(tab: Tab): (bool, string) =
-  let urlSearch = getSearchUrl(tab)
-  if urlSearch.len > 0 and tab.url.startsWith(urlSearch & "?"):
-    return queryParam(tab.url, "q")
-  (false, "")
+proc getSearchQuery(tab: Tab): (bool, string) = getSearchQuery(tab.toc, tab.url)
 
 proc searchSite(tab: Tab, query: string): bool =
   let urlSearch = getSearchUrl(tab)
@@ -470,10 +431,6 @@ proc searchSite(tab: Tab, query: string): bool =
   if urlSearch.len == 0 or q.len == 0: return false
   loadUrl(tab, urlSearch & "?q=" & encodeURIComponent(q))
   true
-
-proc looksLikeAddress(s: string): bool =
-  let t = s.strip
-  '.' in t or '/' in t or ':' in t
 
 # ---------------------------------------------------------------- favicons
 
@@ -580,16 +537,7 @@ proc updateNavButtons() =
   enable(hNext, next.len > 0)
 
 proc pageArrowUrl(tab: Tab, flNext: bool): string =
-  var u = ""
-  if tab.frontMatter != nil and tab.frontMatter.kind == JObject:
-    let p = tab.frontMatter{"urlPrev"}.getStr
-    let n = tab.frontMatter{"urlNext"}.getStr
-    if p.len > 0 or n.len > 0: u = if flNext: n else: p
-  if u.len == 0 and (tab.frontMatter == nil or (tab.frontMatter{"urlPrev"}.getStr.len == 0 and tab.frontMatter{"urlNext"}.getStr.len == 0)):
-    u = if flNext: tab.neighborNext else: tab.neighborPrev
-  if u.len == 0: return ""
-  let r = resolveUrl(tab.url, u)
-  if r.len > 0: r else: u
+  pageArrowUrl(tab.frontMatter, tab.neighborPrev, tab.neighborNext, tab.url, flNext)
 
 proc showSearchBar(flShow: bool)
 
@@ -696,73 +644,6 @@ proc addToHistory(tab: Tab) =
 
 # ---------------------------------------------------------------- loading a page
 
-proc fixUrl(s: string): string =
-  ## what a browser does with "scripting.com" -- try it as http
-  result = s.strip
-  if not result.startsWith("http://") and not result.startsWith("https://") and not result.startsWith(prefixViewSource):
-    result = "http://" & result
-
-proc urlAsksForMarkdown(theUrl: string): bool =
-  ## ?format=markdown on a link: the page's Markdown text, not the page
-  let (found, v) = queryParam(theUrl, "format")
-  found and v.toLowerAscii == "markdown"
-
-proc getExtensionForPage(theUrl, contentType: string): string =
-  ## the server's type when it's in the table, the extension on the address when it isn't
-  let theType = contentType.split(';')[0].strip.toLowerAscii
-  let table = config{"extensionsForTypes"}
-  if table != nil and table.kind == JObject and table.hasKey(theType) and table[theType].kind == JString:
-    return table[theType].getStr.toLowerAscii
-  let p = urlPath(theUrl).toLowerAscii
-  if p.rfind('.') > p.rfind('/'):
-    let ext = p[p.rfind('.') + 1 .. ^1]
-    var ok = ext.len > 0
-    for c in ext:
-      if c notin {'a'..'z', '0'..'9', '_', '-'}: ok = false
-    if ok: return ext
-  ""
-
-proc handlePage(r: var PageResult) =
-  ## PAGE HANDLERS: a page that isn't Markdown goes to its handler, if there's
-  ## one for its extension. The json and js handlers are built in; a user's
-  ## JavaScript handler can't run without a browser engine, and says so.
-  if not r.flOk or r.kind notin ["html", "xml", "text"] or not r.hasSource: return
-  let ext = getExtensionForPage(r.url, r.contentType)
-  if ext.len == 0: return
-  if hasUserHandler(ext):
-    r.handlerError = "Can't use the " & ext & " handler because JavaScript page handlers don't run in the Windows version of BonBon."
-    return
-  var res: tuple[err: string, htmltext: string]
-  case ext
-  of "json": res = jsonHandler(r.source, cfgInt(handlerConfig("json"), "ctSpaces", 4))
-  of "js": res = jsHandler(r.source)
-  else: return
-  if res.err.len > 0:
-    r.handlerError = "Can't use the " & ext & " handler because " & res.err & "."
-    return
-  r.kind = "handler"
-  r.extension = ext
-  r.html = res.htmltext
-
-proc htmlListingText(htmltext: string): string =
-  ## a handler's answer that is one pre is drawn as a listing; its text
-  var s = htmltext
-  let a = s.find('>', s.find("<code"))
-  let b = s.rfind("</code>")
-  if a != -1 and b > a: s = s[a + 1 ..< b]
-  s.multiReplace(("&lt;", "<"), ("&gt;", ">"), ("&quot;", "\""), ("&amp;", "&"))
-
-proc imageUrlsIn(html, baseUrl: string): seq[string] =
-  var ix = html.find("<img")
-  while ix != -1:
-    let ixEnd = html.find('>', ix)
-    if ixEnd == -1: break
-    let src = getTagAttribute(html[ix .. ixEnd], "src")
-    if src.isSome:
-      let u = resolveUrl(baseUrl, src.get)
-      if u.len > 0 and u notin result: result.add u
-    ix = html.find("<img", ixEnd)
-
 proc openPdfOutside(r: PageResult): string =
   ## the PDF, saved in a BonBon folder in the temporary folder and opened from
   ## there; answers the error, "" when it opened
@@ -816,14 +697,7 @@ proc askForToc(tab: Tab, ld: Load) =
     if flOwn or not site.ok or tab.url.len == 0:
       oneWaitDone(tab, ld)
       return
-    var stops: seq[string]
-    proc addStops(subs: seq[OutlineNode]) =
-      for n in subs:
-        if n.hasAtt("url") and n.att("type") != "include":
-          let u = resolveUrl(tab.url, n.att("url"))
-          if u.len > 0: stops.add urlWithoutHash(u)
-        addStops(n.subs)
-    addStops(site.subs)
+    let stops = tocStops(site.subs, tab.url)
     let urlPage = urlWithoutHash(tab.url)
     let urlPageFile = if tab.urlContentLocation.len == 0: urlPage else: urlWithoutHash(tab.urlContentLocation)
     if urlPage notin stops and urlPageFile notin stops:
@@ -869,7 +743,7 @@ proc gotPage(tab: Tab, ld: Load, res: PageResult) =
       ## no PDF viewer in the window: the system's viewer shows it
       let err = openPdfOutside(r)
       r = if err.len > 0: PageResult(flOk: false, url: r.url, message: err) else: PageResult(flOk: true, kind: "openedOutside", url: r.url)
-  handlePage(r)
+  handlePage(r, config)
   ld.result = r
   let flOpenedOutside = r.flOk and r.kind == "openedOutside"
   let flToBrowser = flOpenedOutside or (r.flOk and ld.flFromLink and not ld.flViewSource and r.kind == "html")
@@ -1184,13 +1058,6 @@ proc showSearchBar(flShow: bool) =
     discard SendMessageW(hSearchEdit, EM_SETSEL, 0, -1)
 
 # ---------------------------------------------------------------- bookmarks
-
-proc getBookmarksBarFolder(o: Outline, flCreate: bool): OutlineNode =
-  for n in o.body.subs:
-    if n.att("text").strip.toLowerAscii == nameBookmarksBarFolder.toLowerAscii: return n
-  if flCreate:
-    result = newOutlineNode({"text": nameBookmarksBarFolder, "created": nowUtcString()})
-    o.body.subs.add result
 
 proc addBarButton(text, u: string) =
   let ix = barUrls.len

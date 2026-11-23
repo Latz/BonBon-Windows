@@ -72,10 +72,13 @@ proc be32(v: uint32): string =
   result[2] = char((v shr 8) and 0xFF)
   result[3] = char(v and 0xFF)
 
-proc solidPng*(c: Color): string =
-  ## a 1x1 PNG of one color; scaled by RichEdit into a rule
+proc solidPng*(c: Color, w = 1, h = 1): string =
+  ## a PNG of one color, 1x1 by default; scaled by RichEdit into a rule
   proc chunk(kind, data: string): string = be32(uint32(data.len)) & kind & data & be32(crc32(kind & data))
-  let raw = "\0" & char(c.r) & char(c.g) & char(c.b)
+  var row = "\0"
+  for _ in 1 .. w: row.add char(c.r) & char(c.g) & char(c.b)
+  let raw = repeat(row, h)
+  doAssert raw.len <= 65535, "one stored deflate block"
   var a = 1'u32
   var b = 0'u32
   for ch in raw:
@@ -83,7 +86,7 @@ proc solidPng*(c: Color): string =
     b = (b + a) mod 65521
   let zdata = "\x78\x01" & "\x01" & char(raw.len and 0xFF) & char(raw.len shr 8) &
     char((not raw.len) and 0xFF) & char(((not raw.len) shr 8) and 0xFF) & raw & be32((b shl 16) or a)
-  "\x89PNG\r\n\x1a\n" & chunk("IHDR", be32(1) & be32(1) & "\x08\x02\x00\x00\x00") &
+  "\x89PNG\r\n\x1a\n" & chunk("IHDR", be32(uint32 w) & be32(uint32 h) & "\x08\x02\x00\x00\x00") &
     chunk("IDAT", zdata) & chunk("IEND", "")
 
 # ---------------------------------------------------------------- escaping
@@ -462,11 +465,13 @@ proc renderParagraph(w: var W, p: XmlNode) =
     s.sa = 120
     s.sl = 0
     w.setBlock(s)
-    discard w.picture(img.attr("src"), int(w.opt.columnPx.float * 0.38), img.attr("alt"))
+    let flShown = w.picture(img.attr("src"), int(w.opt.columnPx.float * 0.38), img.attr("alt"))
     w.closePara()
     var b = w.bodyStyle()
     b.li = w.listIndent
     w.setBlock(b)
+    if not flShown and img.attr("alt").strip.len > 0: # a picture that didn't load: its alt text, as a browser shows it
+      w.emitText("[" & img.attr("alt").strip & "] ")
     for c in p:
       if c != img: w.renderNode(c)
     w.closePara()
