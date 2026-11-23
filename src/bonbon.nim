@@ -524,6 +524,38 @@ proc buildTabBar() =
   discard SendMessageW(hTabs, WM_SETREDRAW, TRUE, 0)
   discard InvalidateRect(hTabs, nil, TRUE)
 
+proc drawTabItem(dis: ptr DRAWITEMSTRUCT) =
+  ## the tabs are drawn here so the icon and the title sit in the middle of the
+  ## tab; the control itself puts them at the top when the height is fixed
+  var buf = newWString(260)
+  var item: TCITEMW
+  item.mask = TCIF_TEXT or TCIF_IMAGE
+  item.pszText = &buf
+  item.cchTextMax = 260
+  discard SendMessageW(hTabs, TCM_GETITEMW, WPARAM dis.itemID, cast[LPARAM](addr item))
+  let dc = dis.hDC
+  var rc = dis.rcItem
+  let selected = (dis.itemState and ODS_SELECTED) != 0
+  discard FillRect(dc, addr rc, GetSysColorBrush(if selected: COLOR_WINDOW else: COLOR_BTNFACE))
+  let icon = px(16)
+  let pad = px(8)
+  # the theme draws a tab that isn't selected lower than its rcItem says
+  let mid = if selected: (rc.top + rc.bottom) div 2 else: (rc.top + rc.bottom + px(3)) div 2
+  discard ImageList_Draw(hImages, item.iImage, dc, rc.left + pad, mid - icon div 2, ILD_TRANSPARENT)
+  var rcText = RECT(left: rc.left + pad + icon + px(6), top: rc.top, right: rc.right - pad, bottom: rc.bottom)
+  discard SetBkMode(dc, TRANSPARENT)
+  discard SetTextColor(dc, GetSysColor(COLOR_WINDOWTEXT))
+  let old = SelectObject(dc, fontUi)
+  # centered by eye: the capitals' top to the baseline, not the whole cell with its descender
+  var tm: TEXTMETRICW
+  discard GetTextMetricsW(dc, addr tm)
+  let capH = tm.tmAscent - tm.tmInternalLeading
+  let baseline = mid + (capH + 1) div 2
+  rcText.top = baseline - tm.tmAscent
+  rcText.bottom = rcText.top + tm.tmHeight
+  discard DrawTextW(dc, item.pszText, -1, addr rcText, DT_SINGLELINE or DT_TOP or DT_END_ELLIPSIS or DT_NOPREFIX)
+  discard SelectObject(dc, old)
+
 proc updateNavButtons() =
   let tab = currentTab()
   if tab == nil: return
@@ -1737,6 +1769,11 @@ proc mainProc(hwnd: HWND, msg: UINT, wParam: WPARAM, lParam: LPARAM): LRESULT {.
     let mmi = cast[ptr MINMAXINFO](lParam)
     mmi.ptMinTrackSize = POINT(x: px(520), y: px(360))
     return 0
+  of WM_DRAWITEM:
+    let dis = cast[ptr DRAWITEMSTRUCT](lParam)
+    if dis.CtlType == ODT_TAB:
+      drawTabItem(dis)
+      return 1
   of WM_COMMAND:
     let id = int(LOWORD(wParam))
     let code = HIWORD(wParam)
@@ -1891,7 +1928,7 @@ proc createWindow() =
 
   hTooltip = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW, nil, WS_POPUP or TTS_ALWAYSTIP,
     0, 0, 0, 0, hwndMain, 0, hInst, nil)
-  hTabs = control(hwndMain, WC_TABCONTROLW, "", TCS_FOCUSNEVER or TCS_SINGLELINE or TCS_FIXEDWIDTH or WS_CLIPSIBLINGS, idTabs, fontUi)
+  hTabs = control(hwndMain, WC_TABCONTROLW, "", TCS_FOCUSNEVER or TCS_SINGLELINE or TCS_FIXEDWIDTH or TCS_OWNERDRAWFIXED or WS_CLIPSIBLINGS, idTabs, fontUi)
   hImages = ImageList_Create(px(16), px(16), ILC_COLOR32 or ILC_MASK, 8, 8)
   discard SendMessageW(hTabs, TCM_SETIMAGELIST, 0, cast[LPARAM](hImages))
   discard SendMessageW(hTabs, TCM_SETITEMSIZE, 0, MAKELPARAM(WORD px(200), WORD px(26)))
