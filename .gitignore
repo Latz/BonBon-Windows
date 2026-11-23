@@ -1,0 +1,6 @@
+# build output
+*.exe
+*.dll
+nimcache/
+build/
+tests/*.exe
