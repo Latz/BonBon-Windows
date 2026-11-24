@@ -1,44 +1,56 @@
-# BonBon für Windows (Nim)
+# BonBon für Windows (Nim + WebView2)
 
-Native Windows-Version von BonBon 0.6.56 (Dave Winer, MIT), einem Browser für ein Web aus Markdown-Dateien.
-Kein Electron und keine Browser-Engine: Win32 über [winim](https://github.com/khchen/winim), die Seiten zeichnet RichEdit,
-die Anfragen laufen über WinHTTP (dadurch gilt der Windows-Zertifikatsspeicher, siehe „WHOSE CERTIFICATES“ im Original).
+Windows-Version von BonBon 0.6.56 (Dave Winer, MIT), einem Browser für ein Web aus Markdown-Dateien.
+Die Oberfläche ist die des Originals, unverändert: `index.html`, `index.js`, `index.css` und die Stylesheets
+liegen in `resources/app` und laufen in WebView2, der Browser-Engine von Edge, die Windows mitbringt.
+Was in Electron `main.js` und `preload.js` erledigen, macht hier eine kleine Nim-App: Fenster, Menüs, Dateien im
+Datenordner, und die Anfragen über WinHTTP (dadurch gilt der Windows-Zertifikatsspeicher, siehe „WHOSE CERTIFICATES“ im Original).
 
 ## Bauen
 
 ```
-nimble install winim yaml
+nimble install winim
 nimble test                      # Unit-Tests (ein Teil braucht Internet)
 nim c -o:bonbon.exe src/bonbon.nim
 ```
 
-`bonbon.exe` braucht zur Laufzeit `pcre64.dll` daneben (von nim-markdowns `std/re`) und den Ordner `resources\`.
+Neben `bonbon.exe` müssen liegen:
+
+- `WebView2Loader.dll` (x64) aus dem NuGet-Paket [Microsoft.Web.WebView2](https://www.nuget.org/packages/Microsoft.Web.WebView2),
+  Ordner `build/native/x64`. Die Vtable-Indizes in `src/webview2.nim` sind aus dem `WebView2.h` von Version 1.0.4370.26 gezählt.
+- der Ordner `resources\` (oder einer darüber).
+
+Zur Laufzeit braucht Windows die WebView2-Runtime; Windows 10 und 11 haben sie in der Regel schon.
 Icon und Manifest stecken in `src/bonbon_res.o`; nach Änderungen an `resources/bonbon.rc` neu erzeugen:
 `cd resources && windres bonbon.rc -O coff -o ../src/bonbon_res.o`.
 
 ## Daten
 
-`%APPDATA%\BonBon`: `config.json`, `tabs.json`, `bookmarks.opml`, `history.json`, `urlHistory.json`
-(dieselben Dateien wie die Electron-Version unter Windows) plus `windowsPrefs.json` (Stylesheet, Fensterposition).
+`%APPDATA%\BonBon`, derselbe Ordner wie bei der Electron-Version unter Windows: `config.json`, `tabs.json`, `bookmarks.opml`,
+`history.json`, `urlHistory.json`, `stylesheets\`, `handlers\`. WebView2 legt seine Daten (localStorage der Seite) in `EBWebView\` ab.
 Beim Start registriert sich die App für `bon://`-Links unter `HKCU\Software\Classes\bon`.
-`BONBON_LOG=<datei>` schreibt ein Lade-Log und das zuletzt erzeugte RTF.
 
-## Module
+## Dateien
 
 | Datei | Original |
 |---|---|
-| `requests.nim` | pageRequests.js |
-| `pagetext.nim` | frontMatter.js, markdownConverter.js, json/js-Handler, Makros |
-| `rtf.nim` | Seitenaufbau aus index.js (Bilder, Bildunterschriften, Makros, Überschriften-IDs) |
-| `bonbon.nim` | index.js + main.js (Tabs, Adressleiste, Menüs, Laden, Suche, Live-Reload, bon://) |
-| `bookmarkseditor.nim` | der Outliner-Dialog von „Edit Bookmarks…“ |
-| `workers.nim` | Hintergrund-Threads, Update-Sockets, TOC-Nachbarn |
-| `themes.nim` | die fünf Stylesheets als Werte |
+| `resources/app/` | index.html, index.js, index.css, stylesheets, marked, js-yaml, DOMPurify (unverändert kopiert) |
+| `src/bridge.js` | preload.js, dazu frontMatter.js, markdownConverter.js und die Handler-Sandbox aus pageHandlers.js |
+| `src/bonbon.nim` | main.js (Fenster, Menüs, `window.mdBrowser`-Aufrufe, View Source, PDFs, bon://) |
+| `src/requests.nim` | pageRequests.js |
+| `src/datafolder.nim` | Datenordner, config.json, Handler finden |
+| `src/workers.nim` | Hintergrund-Threads für die Anfragen |
+| `src/webview2.nim` | die benutzten WebView2-COM-Aufrufe |
 
 ## Unterschiede zum Original
 
-- Eigene CSS-Dateien und `urlUserCss` wirken nicht (keine CSS-Engine); stattdessen die fünf Stylesheets als eingebaute Themes, Web-Fonts durch Systemschriften ersetzt.
-- JavaScript-Page-Handler im Ordner `handlers\user` laufen nicht; json und js sind eingebaut.
-- PDFs öffnen immer im System-Viewer; keine Syntaxfärbung; keine DevTools; Randbilder stehen rechts über dem Absatz statt umflossen.
-- Kein Kalender in der Seitenleiste (im Original standardmäßig aus), kein Hit-Counter, kein Ziehen von Tabs/Links.
-- `vendor/markdown.nim`: nim-markdown 0.8.8 mit einem Fix (verschlucktes Zeichen nach Inline-Bildern).
+- „Inspect“ öffnet die Entwicklerwerkzeuge, aber nicht auf dem Element unter der Maus (kann WebView2 nicht).
+- Das View-Source-Fenster hat keine Menüleiste; Quelltexte über 2 MB zeigt es nicht an.
+- Seiten-Handler laufen in einem unsichtbaren, per `sandbox` und Content-Security-Policy abgeschotteten Frame statt in einem
+  eigenen versteckten Fenster mit eigener Session; die dritte Sperre des Originals (jede Anfrage der Session abbrechen) fehlt.
+- Die Seite liegt unter `http://bonbon.example/`, die Stylesheets des Datenordners unter `http://stylesheets.bonbon.example/`.
+  Darum fängt localStorage (gewähltes Stylesheet, Seitenleiste) neu an.
+- Downloads speichert WebView2 ohne Rückfrage in „Downloads“ und zeigt seine Download-Leiste; Electron fragt mit einem Speichern-Dialog.
+- WinHTTP entpackt gzip und deflate, aber kein Brotli; eine Seite, die ein Server ungefragt mit `Content-Encoding: br` schickt, kommt unlesbar an.
+- Es läuft nur eine BonBon zur Zeit; ein zweiter Start und `bon://`-Links gehen an die laufende. Das Original öffnet unter Windows jeweils eine neue.
+- `window.close ()` (letzter Tab geschlossen) wird über die Brücke an die App gemeldet, weil Chromium es einer Seite sonst verbietet.

@@ -1,5 +1,5 @@
 import std/[unittest, json, strutils]
-import opml, urls, pagetext, themes, winutil
+import opml, urls, winutil
 
 suite "opml more":
   test "attributes: set, replace, delete, keep order":
@@ -52,38 +52,8 @@ suite "urls more":
     check encodeURIComponent("a-b_c.d!e~f*g'h(i)") == "a-b_c.d!e~f*g'h(i)"
     check encodeURIComponent("ä") == "%C3%A4"
 
-suite "front matter more":
-  test "the YAML block can end with three dots":
-    let (fm, md) = splitFrontMatter("---\ntitle: T\n...\nbody")
-    check fm["title"].getStr == "T" and md == "body"
-  test "Windows line endings":
-    let (fm, md) = splitFrontMatter("---\r\ntitle: T\r\n---\r\nbody\r\n")
-    check fm["title"].getStr == "T"
-    check md.strip == "body"
-  test "no closing line: not front matter":
-    let (fm, md) = splitFrontMatter("---\ntitle: T\nno end")
-    check fm.len == 0 and md.startsWith("---")
-  test "a YAML list isn't front matter":
-    check splitFrontMatter("---\n- a\n- b\n---\nx")[0].len == 0
-  test "dates in the formats feeds use":
-    for s in ["Mon, 23 Nov 2026 16:27:04 GMT", "Mon, 2 Nov 2026 16:27:04 GMT", "2026-11-23T16:27:04.123Z",
-              "2026-11-23T16:27:04+01:00", "2026-11-23 16:27:04"]:
-      check parseAnyDate(s)[0]
-    check not parseAnyDate("yesterday")[0]
-  test "headingSlug keeps letters of any language":
-    check headingSlug("Über Größe") == "über-größe"
-    check headingSlug("  a  b ") == "a--b"
-  test "encodeHtml":
-    check encodeHtml("<a&b>") == "&lt;a&amp;b&gt;"
-
-suite "themes and menus":
-  test "getTheme falls back to Basic":
-    check getTheme("book").fontBody == "Garamond"
-    check getTheme("nonexistent").name == "basic"
-  test "toColorRef is Windows' BGR":
-    check toColorRef((1, 2, 3)) == 0x030201
-  test "menuLabel cuts long titles and doubles ampersands":
-    check menuLabel("Tom & Jerry") == "Tom && Jerry"
-    let long = repeat("ä", 70)
-    check menuLabel(long) == repeat("ä", 60) & "…"
-    check menuLabel("short", 60) == "short"
+suite "menus":
+  test "getMenuItemLabel trims, cuts long titles the way main.js does, and doubles ampersands":
+    check getMenuItemLabel("  Tom & Jerry ") == "Tom && Jerry"
+    check getMenuItemLabel(repeat("ä", 70)) == repeat("ä", 57) & "..."
+    check getMenuItemLabel(repeat("a", 60)) == repeat("a", 60)

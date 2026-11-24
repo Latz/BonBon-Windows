@@ -2,18 +2,13 @@
 ## folder Electron's BonBon uses on Windows, so tabs.json, bookmarks.opml,
 ## history.json, urlHistory.json and config.json carry over.
 
-import std/[os, json, strutils, times]
-import opml
+import std/[os, json, strutils]
+import urls
 
 const
   appName* = "BonBon"
   appVersion* = "0.6.56"
   fnameConfig = "config.json"
-  fnameTabs = "tabs.json"
-  fnameBookmarks = "bookmarks.opml"
-  fnameHistory = "history.json"
-  fnameUrlHistory = "urlHistory.json"
-  fnamePrefs = "windowsPrefs.json"  ## what localStorage held in the original: the stylesheet, the sidebar
   maxUrlHistory* = 10000
 
 proc dataFolder*(): string =
@@ -21,7 +16,7 @@ proc dataFolder*(): string =
   createDir(result)
 
 proc resourcesFolder*(): string =
-  ## the app's own files: config.json's seed, the handlers
+  ## the app's own files: config.json's seed, the handlers, the shell page (app)
   result = getAppDir() / "resources"
   if not dirExists(result): result = getAppDir().parentDir / "resources"
 
@@ -63,71 +58,24 @@ proc cfgBool*(c: JsonNode, k: string, default = false): bool =
 
 # ---------------------------------------------------------------- files
 
-proc readJsonFile(fname: string): JsonNode =
-  try: parseFile(dataFolder() / fname)
-  except CatchableError: nil
+proc readText*(fname: string): (bool, string) =
+  ## a file in the data folder; false when it isn't there
+  try: (true, readFile(dataFolder() / fname))
+  except CatchableError: (false, "")
 
-proc writeJsonFile(fname: string, j: JsonNode) =
+proc writeText*(fname, text: string) =
   try:
     let path = dataFolder() / fname
-    writeFile(path & ".tmp", j.pretty.replace("  ", "\t"))
+    writeFile(path & ".tmp", text)
     moveFile(path & ".tmp", path) # whole or not at all
-  except CatchableError: discard
+  except CatchableError as e:
+    echo "Can't save " & fname & " because " & e.msg
 
-type
-  SavedTab* = object
-    pageHistory*: seq[string]
-    ixHistory*: int
-  PageVisit* = object
-    url*, title*, `when`*: string
-
-proc readTabs*(): (int, seq[SavedTab]) =
-  let j = readJsonFile(fnameTabs)
-  if j == nil or j.kind != JObject: return (-1, @[])
-  result[0] = j{"ixCurrentTab"}.getInt(0)
-  for t in j{"tabs"}.getElems:
-    var s = SavedTab(ixHistory: t{"ixHistory"}.getInt(-1))
-    for u in t{"pageHistory"}.getElems:
-      s.pageHistory.add u.getStr
-    s.ixHistory = min(s.ixHistory, s.pageHistory.high)
-    result[1].add s
-
-proc writeTabs*(ixCurrentTab: int, tabs: seq[SavedTab]) =
-  var arr = newJArray()
-  for t in tabs: arr.add %*{"pageHistory": t.pageHistory, "ixHistory": t.ixHistory}
-  writeJsonFile(fnameTabs, %*{"ixCurrentTab": ixCurrentTab, "tabs": arr})
-
-proc readVisits(fname: string): seq[PageVisit] =
-  let j = readJsonFile(fname)
-  if j == nil or j.kind != JArray: return
-  for v in j:
-    if v.kind == JObject and v{"url"}.getStr.len > 0:
-      result.add PageVisit(url: v{"url"}.getStr, title: v{"title"}.getStr, `when`: v{"when"}.getStr)
-
-proc writeVisits(fname: string, list: seq[PageVisit], max: int) =
-  var arr = newJArray()
-  for i, v in list:
-    if i >= max: break
-    arr.add %*{"url": v.url, "title": v.title, "when": v.`when`}
-  writeJsonFile(fname, arr)
-
-proc readHistory*(): seq[PageVisit] = readVisits(fnameHistory)
-proc writeHistory*(list: seq[PageVisit], max: int) = writeVisits(fnameHistory, list, max)
-proc readUrlHistory*(): seq[PageVisit] = readVisits(fnameUrlHistory)
-proc writeUrlHistory*(list: seq[PageVisit]) = writeVisits(fnameUrlHistory, list, maxUrlHistory)
-
-proc readBookmarks*(): string =
-  ## the opml text, or "" the first time
-  try: readFile(dataFolder() / fnameBookmarks) except CatchableError: ""
-
-proc writeBookmarks*(opmltext: string) =
-  try: writeFile(dataFolder() / fnameBookmarks, opmltext) except CatchableError: discard
-
-proc readPrefs*(): JsonNode =
-  result = readJsonFile(fnamePrefs)
-  if result == nil or result.kind != JObject: result = newJObject()
-
-proc writePrefs*(j: JsonNode) = writeJsonFile(fnamePrefs, j)
+proc readJson*(fname: string): JsonNode =
+  ## nil when the file isn't there or isn't JSON
+  let (ok, text) = readText(fname)
+  if not ok: return nil
+  try: parseJson(text) except CatchableError: nil
 
 # ---------------------------------------------------------------- handlers
 
@@ -145,34 +93,34 @@ proc seedHandlers*() =
     createDir(handlersFolder() / "user")
   except CatchableError: discard
 
-proc handlerConfig*(ext: string): JsonNode =
-  for sub in ["user", "system"]:
-    let p = handlersFolder() / sub / ext / "config.json"
-    if fileExists(p):
-      try: return parseFile(p)
-      except CatchableError: return newJObject()
-  newJObject()
+proc findHandler*(theExtension: string, ctSecsTimeout: int): JsonNode =
+  ## the user's if there is one, ours if not: {extension, code, config,
+  ## ctSecsTimeout, version}, with configError when its config.json is broken;
+  ## nil when there's none. It runs in the page, see bridge.js.
+  for nameFolder in ["user", "system"]:
+    let folder = handlersFolder() / nameFolder / theExtension
+    var code: string
+    try: code = readFile(folder / "handler.js")
+    except CatchableError: continue
+    result = %*{"extension": theExtension, "code": code, "config": {},
+      "ctSecsTimeout": ctSecsTimeout, "version": appVersion}
+    if fileExists(folder / "config.json"):
+      try: result["config"] = parseFile(folder / "config.json")
+      except CatchableError as e: result["configError"] = %("its config.json isn't valid JSON: " & e.msg)
+    return
 
-proc hasUserHandler*(ext: string): bool = fileExists(handlersFolder() / "user" / ext / "handler.js")
-
-# ---------------------------------------------------------------- the starting bookmarks
-
-const
-  nameBookmarksBarFolder* = "Bookmarks bar"
-  urlDocs* = "https://github.com/scripting/bonBon/tree/main/docs"
-  urlSupport* = "https://github.com/scripting/bonBon/issues"
-
-proc nowUtcString*(): string =
-  now().utc.format("ddd, dd MMM yyyy HH:mm:ss") & " GMT"
-
-proc newBookmark*(text, url: string): OutlineNode =
-  newOutlineNode({"text": text, "url": url, "type": "bookmark", "icon": "bookmark", "created": nowUtcString()})
-
-proc startingBookmarks*(urlHomePage: string): Outline =
-  ## Docs and Support at the top, then the Bookmarks bar headline with Home under it
-  result = newOutline()
-  let now = nowUtcString()
-  result.head = @[("title", "Bookmarks"), ("dateCreated", now), ("dateModified", now)]
-  let folder = newOutlineNode({"text": nameBookmarksBarFolder, "created": now})
-  if urlHomePage.len > 0: folder.subs.add newBookmark("Home", urlHomePage)
-  result.body.subs = @[newBookmark("Docs", urlDocs), newBookmark("Support", urlSupport), folder]
+proc getExtensionForPage*(config: JsonNode, theUrl, contentType: string): string =
+  ## which handler gets a page: the server's type when it's in the table, the
+  ## extension on the address when it isn't; "" when there's neither
+  let theType = contentType.split(';')[0].strip.toLowerAscii
+  let table = if config == nil: nil else: config{"extensionsForTypes"}
+  if table != nil and table.kind == JObject and table.hasKey(theType) and table[theType].kind == JString:
+    return table[theType].getStr.toLowerAscii
+  let p = urlPath(theUrl).toLowerAscii
+  if p.rfind('.') > p.rfind('/'):
+    let ext = p[p.rfind('.') + 1 .. ^1]
+    var ok = ext.len > 0
+    for c in ext:
+      if c notin {'a'..'z', '0'..'9', '_', '-'}: ok = false # it names a folder: nothing that walks out of it
+    if ok: return ext
+  ""

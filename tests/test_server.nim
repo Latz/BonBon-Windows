@@ -2,18 +2,18 @@
 ## no internet needed.
 
 import std/[unittest, asynchttpserver, asyncdispatch, strutils, json, os]
-import requests, opml, rtf
+import requests, opml
 
 var serverPort: int
 var serverReady: Channel[int]
 serverReady.open()
 
 const markdownPage* = "---\ntitle: Hello\n---\n# Hi\n\nSome *text*.\n"
-let pngBytes = solidPng((255, 0, 0))
+const pngBytes = "\x89PNG\r\n\x1a\n\0\0\0\rIHDR" ## the bytes a PNG starts with; the type is told from them
 
 proc serve() {.thread.} =
   {.cast(gcsafe).}:
-    let png = solidPng((255, 0, 0))
+    let png = pngBytes
     let server = newAsyncHttpServer()
     server.listen(Port(0), "127.0.0.1")
     serverReady.send int(server.getPort)
@@ -92,11 +92,9 @@ suite "httpGet":
     check httpGet(base & "/folder/").contentLocation == base & "/folder/readme.md"
 
 suite "getPage":
-  test "a Markdown page: front matter off, converted":
+  test "a Markdown page comes as it came":
     let p = getPage(base & "/page.md")
     check p.flOk and p.kind == ""
-    check parseJson(p.frontMatter)["title"].getStr == "Hello"
-    check "<h1>Hi</h1>" in p.html
     check p.source == markdownPage
   test "text/plain with .md is a page":
     check getPage(base & "/plain.md").kind == ""

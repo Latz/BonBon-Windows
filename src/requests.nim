@@ -11,7 +11,7 @@
 
 import std/[strutils, tables, times, locks, json, base64, options]
 import winim/lean, winim/inc/winhttp
-import urls, opml, pagetext
+import urls, opml
 
 type
   HttpResponse* = object
@@ -35,8 +35,6 @@ type
     title*: string                  ## "" when there's none
     source*: string
     hasSource*: bool
-    html*: string                   ## the Markdown page, converted
-    frontMatter*: string            ## JSON text of the YAML front matter
     contentType*: string
     headers*: seq[(string, string)]
     imageData*: string              ## bytes, kind image
@@ -439,7 +437,7 @@ proc isBodyWantedForPage(urlAnswered, theContentType: string, theContentLength: 
   theKind.len > 0
 
 proc getPage*(theUrl: string, flAsItCame = false): PageResult =
-  ## Answers the Markdown page {flOk, url, frontMatter, html, source}, or
+  ## Answers the Markdown page {flOk, url, source}, or
   ## {flOk, kind, ...} for something else we show, or {flOk: false, status, message}.
   ## flAsItCame, for View Source: an HTML page is answered as the HTML.
   const acceptForPage = "text/markdown, text/x-opml"
@@ -458,9 +456,8 @@ proc getPage*(theUrl: string, flAsItCame = false): PageResult =
     if r.status != 200:
       return PageResult(flOk: false, url: r.url, status: r.status, message: getServerErrorMessage(r), size: -1)
     if isMarkdownPage(r.url, r.contentType):
-      let thePage = splitFrontMatter(r.body)
+      # the front matter and the Markdown are done in the page, with the original's js-yaml and marked (bridge.js)
       return PageResult(flOk: true, url: r.url, urlContentLocation: r.contentLocation,
-        frontMatter: $thePage.frontMatter, html: convertMarkdownToHtml(thePage.markdown),
         source: r.body, hasSource: true, size: -1)
     let theKind = getPageKind(r.url, r.contentType)
     case theKind
