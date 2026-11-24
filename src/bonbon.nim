@@ -297,6 +297,17 @@ proc sendKeys(vks: openArray[int], ctrl = ctrlMain) =
   if ctrl != nil: moveFocus(ctrl)
   discard SendInput(UINT inputs.len, addr inputs[0], int32 sizeof(INPUT))
 
+proc devToolsWindow(): HWND =
+  ## the shell page's DevTools window; WebView2 titles it with the page's
+  ## address, which it knows once its page is running
+  FindWindowW(nil, "DevTools - " & urlShellPage["http://".len .. ^1])
+
+proc toggleDevTools() =
+  ## Electron's toggleDevTools: DevTools open, or closed when they're open
+  let dt = devToolsWindow()
+  if dt != 0: discard PostMessageW(dt, WM_CLOSE, 0, 0)
+  elif wvMain != nil: openDevToolsWindow(wvMain)
+
 proc toggleZoom(hwnd: HWND) =
   discard ShowWindow(hwnd, if IsZoomed(hwnd) != 0: SW_RESTORE else: SW_MAXIMIZE)
 
@@ -328,7 +339,7 @@ proc doCommand(id: int, hwnd = hwndMain, ctrl = ctrlMain) =
   of cmdFindPrevious: sendCommand("findPrevious")
   of cmdReload: sendCommand("reload")
   of cmdViewSource: sendCommand("viewSource")
-  of cmdDevTools: (if wvMain != nil: openDevToolsWindow(wvMain))
+  of cmdDevTools: toggleDevTools()
   of cmdHome: sendCommand("goHome")
   of cmdBack: sendCommand("goBack")
   of cmdForward: sendCommand("goForward")
@@ -363,11 +374,6 @@ var
   inspectKeysAt = -1       ## the tick for the picker's keys, once the DevTools window is there
   inspectFirstWait = 0     ## from the DevTools window to the keys: longer when it has to load
   flInspectRetried = false
-
-proc devToolsWindow(): HWND =
-  ## the shell page's DevTools window; WebView2 titles it with the page's
-  ## address, which it knows once its page is running
-  FindWindowW(nil, "DevTools - " & urlShellPage["http://".len .. ^1])
 
 proc evaluate(js: string, done: proc (json: string) = nil) =
   callDevToolsProtocolMethod(wvMain, "Runtime.evaluate", $(%*{"expression": js, "returnByValue": true}), done)
@@ -476,7 +482,9 @@ proc openSourceWindow(theUrl, theSource: string) =
     discard GetClientRect(hwnd, addr rc)
     setBounds(ctrl, rc)
     onAcceleratorKeyPressed(ctrl, pageKeys(hwnd))
-    navigate(getWebView(ctrl), "file:///" & path.replace('\\', '/')))
+    let wv = getWebView(ctrl)
+    configure(wv) # an Electron window: no menu of WebView2's on a right-click, no browser keys (Ctrl+P, F5)
+    navigate(wv, "file:///" & path.replace('\\', '/')))
 
 proc sourceProc(hwnd: HWND, msg: UINT, wParam: WPARAM, lParam: LPARAM): LRESULT {.stdcall.} =
   case msg
@@ -620,7 +628,7 @@ proc pageCall(message: string) =
       writeText("urlHistory.json", $theList)
     reply(id)
   of "toggleDevTools":
-    if wvMain != nil: openDevToolsWindow(wvMain)
+    toggleDevTools()
     reply(id)
   of "openDataFolder":
     openShell(dataFolder())

@@ -291,6 +291,12 @@ suite "the menus":
     waitUntil("the source window to close", proc (): bool = mainWindows(app.processID, "BonBonSource").len == 0)
     discard js("loadUrl (currentTab (), '" & base & "/second.md')")
     waitForJs("currentTab ().title === 'Second page'")
+  test "Developer Tools opens DevTools, and closes them the second time, as Electron's toggle does":
+    let title = "DevTools - bonbon.example/index.html"
+    app.choose("Developer Tools")
+    waitUntil("DevTools", proc (): bool = FindWindowW(nil, title) != 0)
+    app.choose("Developer Tools")
+    waitUntil("DevTools to close", proc (): bool = FindWindowW(nil, title) == 0)
   test "Find opens the page's find bar":
     app.choose("Find...")
     waitForJs("getComputedStyle (document.querySelector ('.divFindBar')).display !== 'none'")
