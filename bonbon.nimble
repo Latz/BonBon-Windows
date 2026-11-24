@@ -1,7 +1,7 @@
 # BonBon for Windows -- a browser for a web made of Markdown files, native, in Nim.
 # Port of BonBon 0.6.56 (Electron) by Dave Winer.
 
-version       = "1.0.0"
+version       = "1.0.1"
 author        = "Dave Winer (original), Windows port"
 description   = "A browser for a web made of Markdown files, native Windows version."
 license       = "MIT"
