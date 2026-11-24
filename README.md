@@ -11,6 +11,7 @@ Datenordner, und die Anfragen über WinHTTP (dadurch gilt der Windows-Zertifikat
 ```
 nimble install winim
 nimble test                      # Unit-Tests (ein Teil braucht Internet)
+nimble e2e                       # baut build\bonbon.exe und testet die echte App (Desktop, WebView2, build\WebView2Loader.dll)
 nim c -o:bonbon.exe src/bonbon.nim
 ```
 

@@ -8,12 +8,11 @@
 
 {.link: "bonbon_res.o".}
 
-import std/[os, strutils, json, tables, algorithm, sequtils]
+import std/[os, strutils, json, tables, algorithm, sequtils, hashes]
 import winim/lean, winim/inc/[shellapi, winreg, objbase]
 import urls, requests, datafolder, workers, winutil, webview2
 
 const
-  classMain = "BonBonMain"
   classSource = "BonBonSource"
   hostApp = "bonbon.example"                   ## the shell page's files, resources/app
   hostStylesheets = "stylesheets.bonbon.example" ## the data folder's stylesheets; a page can't link file:// addresses
@@ -54,6 +53,8 @@ const
     Key(vk: VK_OEM_6, ctrl: true, cmd: cmdForward),
     Key(vk: ord('D'), ctrl: true, cmd: cmdAddBookmark),
     Key(vk: ord('M'), ctrl: true, cmd: cmdMinimize)]
+
+let classMain = "BonBonMain_" & toHex(hash(dataFolder().toLowerAscii)) ## one BonBon per data folder: a second launch finds the first by it
 
 var
   hInst: HINSTANCE
@@ -684,7 +685,7 @@ proc main() =
   hInst = GetModuleHandleW(nil)
   let urls = argUrls()
   # one BonBon at a time: a second launch hands its bon:// links to the first
-  discard CreateMutexW(nil, FALSE, "BonBonForWindowsSingleInstance")
+  discard CreateMutexW(nil, FALSE, classMain)
   if GetLastError() == ERROR_ALREADY_EXISTS:
     let other = FindWindowW(classMain, nil)
     if other != 0:
@@ -704,7 +705,7 @@ proc main() =
   seedHandlers()
   let theList = readJson("history.json")
   if theList != nil and theList.kind == JArray: recentPages = theList
-  registerBonProtocol()
+  if getEnv("BONBON_E2E").len == 0: registerBonProtocol() # the end-to-end tests leave the registry alone
   iconApp = LoadIconW(hInst, MAKEINTRESOURCEW(1))
   createWindow()
   startWorkers(hwndMain)

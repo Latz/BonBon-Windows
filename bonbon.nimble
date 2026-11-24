@@ -14,3 +14,7 @@ task test, "Run the unit tests":
   for f in ["test_urls", "test_opml", "test_requests",
             "test_server", "test_datafolder", "test_misc"]:
     exec "nim c -r --hints:off tests/" & f & ".nim"
+
+task e2e, "Build build/bonbon.exe and run the end-to-end tests (needs a desktop, WebView2 and WebView2Loader.dll in build)":
+  exec "nim c --hints:off -o:build/bonbon.exe src/bonbon.nim"
+  exec "nim c -r --hints:off tests/e2e.nim"
