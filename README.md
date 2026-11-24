@@ -57,6 +57,7 @@ What `main.js` and `preload.js` do in Electron is done here by a small app in [N
 Added or changed for Windows:
 
 - **One file.** `bonbon.exe` carries everything it needs: the original's interface, the stylesheets, the handlers and the seed of `config.json`. On its first start, and after an update, it unpacks them to `%LOCALAPPDATA%\BonBon\resources`. It finds the WebView2 runtime on its own, the way `WebView2Loader.dll` does, so it needs no DLL beside it. If that ever fails, it falls back to the real `WebView2Loader.dll`, which it also carries.
+- **Window place.** BonBon opens where it was closed, at the same size, maximized if it was. If that place is on a screen that's no longer there, it opens in the middle, at the size in `config.json`. The original always opens in the middle.
 - **Menus.** The menu bar uses Windows conventions. Alt opens it, and Alt plus a letter opens one menu, even when the page has the focus: Alt+F File, Alt+E Edit, Alt+V View, Alt+S History, Alt+B Bookmarks, Alt+W Window, Alt+O BonBon. AltGr still types characters such as `@`.
 - **Ctrl-click.** Ctrl-click on a link, or on an item in the bookmarks bar, opens it in a new tab behind the current one, as Cmd-click does on a Mac. The original asks for the Mac's Cmd key, which on Windows is the Windows key, so the bridge counts Ctrl as Cmd for mouse clicks.
 - **View Source windows.** They have the same menu bar as the main window, as every Electron window has the application menu. Edit and Window act on the source window; all other commands act on the main window. A source window has no context menu and no browser keys such as Ctrl+P, as in Electron. Sources over 2 MB are shown too.
@@ -83,7 +84,7 @@ BonBon needs the WebView2 Runtime, which Windows 10 and 11 usually already have.
 
 ## Data
 
-BonBon keeps its data in `%APPDATA%\BonBon`. That's the same folder the Electron version uses on Windows, so tabs, bookmarks and history carry over. The folder holds `config.json`, `tabs.json`, `bookmarks.opml`, `history.json`, `urlHistory.json`, `stylesheets\` and `handlers\`. WebView2 keeps its own data, including the page's localStorage, in `EBWebView\`.
+BonBon keeps its data in `%APPDATA%\BonBon`. That's the same folder the Electron version uses on Windows, so tabs, bookmarks and history carry over. The folder holds `config.json`, `tabs.json`, `bookmarks.opml`, `history.json`, `urlHistory.json`, `windowsPrefs.json` (the window's place), `stylesheets\` and `handlers\`. WebView2 keeps its own data, including the page's localStorage, in `EBWebView\`.
 
 The app's own files are unpacked to `%LOCALAPPDATA%\BonBon\resources`, one folder per build. That folder is only a cache: deleting it is harmless, and the next start unpacks it again.
 

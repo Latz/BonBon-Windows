@@ -718,6 +718,35 @@ proc argUrls(): seq[string] =
 
 # ---------------------------------------------------------------- the window
 
+const fnamePrefs = "windowsPrefs.json" ## {"window": {x, y, w, h, maximized}}, and whatever else is in it, kept
+
+proc saveWindowPlace() =
+  ## where the window is, for the next start; its size and place when it isn't maximized, and whether it is.
+  ## The Electron original doesn't remember; a Windows app is expected to
+  var wp = WINDOWPLACEMENT(length: UINT sizeof(WINDOWPLACEMENT))
+  if GetWindowPlacement(hwndMain, addr wp) == 0: return
+  var prefs = readJson(fnamePrefs)
+  if prefs == nil or prefs.kind != JObject: prefs = newJObject()
+  let r = wp.rcNormalPosition
+  let maximized = wp.showCmd == SW_SHOWMAXIMIZED or
+    (wp.showCmd == SW_SHOWMINIMIZED and (wp.flags and WPF_RESTORETOMAXIMIZED) != 0)
+  prefs["window"] = %*{"x": r.left, "y": r.top, "w": r.right - r.left, "h": r.bottom - r.top, "maximized": maximized}
+  writeText(fnamePrefs, prefs.pretty)
+
+proc restoreWindowPlace(): bool =
+  ## the window where it was the last time, and shown; false when that isn't known or isn't on any screen now
+  let prefs = readJson(fnamePrefs)
+  let w = if prefs == nil: nil else: prefs{"window"}
+  if w == nil or w.kind != JObject: return false
+  let x = int32 w{"x"}.getInt
+  let y = int32 w{"y"}.getInt
+  var rc = RECT(left: x, top: y, right: x + int32 w{"w"}.getInt, bottom: y + int32 w{"h"}.getInt)
+  if rc.right - rc.left < 200 or rc.bottom - rc.top < 150: return false
+  if MonitorFromRect(addr rc, MONITOR_DEFAULTTONULL) == 0: return false # a screen that's gone: the middle of this one
+  var wp = WINDOWPLACEMENT(length: UINT sizeof(WINDOWPLACEMENT), rcNormalPosition: rc,
+    showCmd: UINT(if w{"maximized"}.getBool: SW_SHOWMAXIMIZED else: SW_SHOWNORMAL))
+  SetWindowPlacement(hwndMain, addr wp) != 0
+
 proc fitPage() =
   if ctrlMain == nil: return
   var rc: RECT
@@ -753,6 +782,7 @@ proc mainProc(hwnd: HWND, msg: UINT, wParam: WPARAM, lParam: LPARAM): LRESULT {.
         if u.len > 0: openBonUrl(u)
     return 1
   of WM_DESTROY:
+    saveWindowPlace()
     for h in toSeq(sourceWindows.keys): discard DestroyWindow(h) # the app quits with its window
     if ctrlMain != nil: closeController(ctrlMain)
     PostQuitMessage(0)
@@ -814,7 +844,7 @@ proc createWindow() =
   hwndMain = CreateWindowExW(0, classMain, "Markdown Browser", WS_OVERLAPPEDWINDOW or WS_CLIPCHILDREN,
     x, y, w, h, 0, 0, hInst, nil)
   buildMenu()
-  discard ShowWindow(hwndMain, SW_SHOWNORMAL)
+  if not restoreWindowPlace(): discard ShowWindow(hwndMain, SW_SHOWNORMAL)
 
 proc main() =
   hInst = GetModuleHandleW(nil)

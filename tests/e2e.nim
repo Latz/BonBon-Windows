@@ -220,6 +220,8 @@ proc waitForJs(expression: string, timeout = 15.0) =
 
 createDir(dataDir)
 writeFile(dataDir / "config.json", $(%*{"urlHomePage": base & "/index.md", "urlHitCounterServer": base & "/hello"})) # the hit counter counts here, not at scripting.com
+let windowPlace = %*{"x": 120, "y": 90, "w": 900, "h": 650, "maximized": false}
+writeFile(dataDir / "windowsPrefs.json", $(%*{"nameStylesheet": "book", "window": windowPlace})) # where the window was the last time; the other key is the old version's
 doAssert fileExists(exe), "build bonbon.exe first: nimble e2e does"
 let app = launch()
 waitUntil("the window", proc (): bool = mainWindow(app) != 0)
@@ -332,9 +334,10 @@ suite "the menus":
       var l = 1 or (int(MapVirtualKeyW(UINT vk, 0)) shl 16) or 0x20000000 # one press, the scan code, Alt down
       if up: l = l or int(0xC0000000'u32)
       LPARAM l
-    for (msg, vk, up) in [(WM_SYSKEYDOWN, VK_MENU, false), (WM_SYSKEYDOWN, ord('S'), false),
-                          (WM_SYSKEYUP, ord('S'), true), (WM_SYSKEYUP, VK_MENU, true)]:
-      discard PostMessageW(host, UINT msg, WPARAM vk, keyLParam(vk, up))
+    # only the presses: an Alt let go while the menu is opening can close it again. Posted keys don't
+    # change the keyboard's state, so nothing is left held down
+    for vk in [VK_MENU, ord('S')]:
+      discard PostMessageW(host, WM_SYSKEYDOWN, WPARAM vk, keyLParam(vk, false))
     let bar = GetMenu(hwnd)
     let ix = menuIndex(bar, "History")
     check ix != -1
@@ -393,6 +396,10 @@ suite "tabs and the one instance":
     app.choose("Close Tab")
     check app.waitForExit(10_000) == 0
     check readFile(dataDir / "tabs.json") == saved
+  test "the window opened where it was the last time, and that's where it's saved on closing":
+    let prefs = parseFile(dataDir / "windowsPrefs.json")
+    check prefs{"window"} == windowPlace
+    check prefs{"nameStylesheet"}.getStr == "book" # the rest of the file is kept
 
 app.close()
 for i in 1 .. 50: # WebView2's own processes let go of the data folder a moment after the app
