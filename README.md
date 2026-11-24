@@ -44,7 +44,7 @@ We're going to keep developing BonBon, and will work with developers who want to
 
 ## The Windows version
 
-BonBon for Windows 1.0.1 is a port of BonBon 0.6.56. Questions about BonBon itself belong in the original's issues. This repository is for problems that only happen on Windows.
+BonBon for Windows is a port of BonBon 0.6.56. Questions about BonBon itself belong in the original's issues. This repository is for problems that only happen on Windows.
 
 ### How it's built
 
@@ -62,7 +62,8 @@ Added or changed for Windows:
 - **Inspect.** Inspect on the right-click menu opens DevTools with the element under the pointer selected. WebView2 has no call for this. BonBon turns on DevTools' element picker and clicks the spot. If DevTools is slow to load, BonBon tries again once. If that also fails, DevTools opens without a selection, and the click never reaches the page.
 - **One instance.** Only one BonBon runs at a time. A second launch, or a `bon://` link, opens its address in a new tab in the running app. On Windows the original starts a new copy each time.
 - **Closing.** Closing the main window also closes any View Source windows and quits. Electron keeps the source windows open.
-- **Version.** The app reports its own version, 1.0.1, in the window's corner, the About box and the User-Agent.
+- **Version.** The app reports its own version, starting at 1.0.0, in the window's corner, the About box and the User-Agent.
+- **Redo** shows Ctrl+Shift+Z in the Edit menu, as in the original. Ctrl+Y redoes too, in the page.
 
 Differences that remain:
 

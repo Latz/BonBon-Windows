@@ -176,7 +176,7 @@ proc menuBar(): HMENU =
   addItem(fileMenu, "Open Data Folder", ord cmdOpenDataFolder)
   let editMenu = CreatePopupMenu()
   addItem(editMenu, "Undo", ord cmdUndo, "Ctrl+Z")
-  addItem(editMenu, "Redo", ord cmdRedo, "Ctrl+Y")
+  addItem(editMenu, "Redo", ord cmdRedo, "Ctrl+Shift+Z") # the original's key; Ctrl+Y redoes too, in the page
   addSeparator(editMenu)
   addItem(editMenu, "Cut", ord cmdCut, "Ctrl+X")
   addItem(editMenu, "Copy", ord cmdCopy, "Ctrl+C")
@@ -327,7 +327,7 @@ proc doCommand(id: int, hwnd = hwndMain, ctrl = ctrlMain) =
   of cmdCloseTab: sendCommand("closeTab")
   of cmdOpenDataFolder: openShell(dataFolder())
   of cmdUndo: sendKeys([VK_CONTROL, ord('Z')], ctrl)
-  of cmdRedo: sendKeys([VK_CONTROL, ord('Y')], ctrl)
+  of cmdRedo: sendKeys([VK_CONTROL, VK_SHIFT, ord('Z')], ctrl)
   of cmdCut: sendKeys([VK_CONTROL, ord('X')], ctrl)
   of cmdCopy: sendKeys([VK_CONTROL, ord('C')], ctrl)
   of cmdPaste: sendKeys([VK_CONTROL, ord('V')], ctrl)

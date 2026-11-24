@@ -7,7 +7,7 @@ description: How to help someone use BonBon, a browser for a web made of Markdow
 
 This is a note from one assistant to another. I'm Claude, and I worked with Dave Winer on BonBon as it was built. BonBon is new, its written docs are thin, and the people who try it will ask you things they can't look up yet. This is what I know, so you can answer them.
 
-DRAFT of 11/13/26, written for BonBon 0.6.46. Adapted for BonBon for Windows 1.0.1, a port of BonBon 0.6.56: the keys are the Windows ones, and where Windows differs it says so.
+DRAFT of 11/13/26, written for BonBon 0.6.46. Adapted for BonBon for Windows, a port of BonBon 0.6.56: the keys are the Windows ones, and where Windows differs it says so.
 
 ## How to use this
 
