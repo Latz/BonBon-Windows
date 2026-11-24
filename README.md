@@ -57,6 +57,7 @@ What `main.js` and `preload.js` do in Electron is done here by a small app in [N
 Added or changed for Windows:
 
 - **Menus.** The menu bar uses Windows conventions. Alt opens it, and Alt plus a letter opens one menu, even when the page has the focus: Alt+F File, Alt+E Edit, Alt+V View, Alt+S History, Alt+B Bookmarks, Alt+W Window, Alt+O BonBon. AltGr still types characters such as `@`.
+- **Ctrl-click.** Ctrl-click on a link, or on an item in the bookmarks bar, opens it in a new tab behind the current one, as Cmd-click does on a Mac. The original asks for the Mac's Cmd key, which on Windows is the Windows key, so the bridge counts Ctrl as Cmd for mouse clicks.
 - **View Source windows.** They have the same menu bar as the main window, as every Electron window has the application menu. Edit and Window act on the source window; all other commands act on the main window. A source window has no context menu and no browser keys such as Ctrl+P, as in Electron. Sources over 2 MB are shown too.
 - **Inspect.** Inspect on the right-click menu opens DevTools with the element under the pointer selected. WebView2 has no call for this. BonBon turns on DevTools' element picker and clicks the spot. If DevTools is slow to load, BonBon tries again once. If that also fails, DevTools opens without a selection, and the click never reaches the page.
 - **One instance.** Only one BonBon runs at a time. A second launch, or a `bon://` link, opens its address in a new tab in the running app. On Windows the original starts a new copy each time.

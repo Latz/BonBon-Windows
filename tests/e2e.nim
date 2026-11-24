@@ -241,6 +241,12 @@ suite "pages":
     waitForJs("currentTab ().title === 'Second page'")
     app.choose("Back")
     waitForJs("currentTab ().title === 'Home page'")
+  test "Ctrl-click on a link opens it in a new tab behind this one, as Cmd-click does on a Mac":
+    let n = js("tabs.length").getInt
+    discard js("[...document.querySelectorAll ('.divPage a')].find (a => a.textContent === 'Second').dispatchEvent (new MouseEvent ('click', {bubbles: true, cancelable: true, ctrlKey: true}))")
+    waitForJs("tabs.length === " & $(n + 1))
+    waitForJs("tabs.some (t => t.url === '" & base & "/second.md')")
+    check js("currentTab ().title").getStr == "Home page"
   test "the History menu lists the pages":
     waitUntil("History", proc (): bool = "Second page" in app.menuLabels("History"))
     check "Home page" in app.menuLabels("History")

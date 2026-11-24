@@ -20,6 +20,20 @@
 		}
 	const webview = window.chrome.webview;
 
+	/*  CTRL-CLICK. The shell opens a link in a new tab on a Cmd-click, the
+		Mac's key; it asks event.metaKey, which on Windows is the Windows key.
+		Here Ctrl counts as Cmd for a mouse event, the way Windows browsers do
+		it, so index.js stays as it is.  */
+
+	const metaKeyOfMouse = Object.getOwnPropertyDescriptor (MouseEvent.prototype, "metaKey");
+	Object.defineProperty (MouseEvent.prototype, "metaKey", {
+		configurable: true,
+		enumerable: metaKeyOfMouse.enumerable,
+		get: function () {
+			return (metaKeyOfMouse.get.call (this) || this.ctrlKey);
+			}
+		});
+
 	const marked = (function () {
 		var module = {exports: {}}, exports = module.exports, define = undefined;
 		/*MARKED*/

@@ -58,7 +58,7 @@ The format is determined by the image file's actual content, not its extension.
 
 Markdown inside the shell, around the edges there is an address bar, history and bookmarks menus, and icons in the browser chrome. Icons come from Font Awesome.
 
-Tabs. Each tab holds one page. Clicking a link opens it in the same tab; Cmd-click opens it in a new tab.
+Tabs. Each tab holds one page. Clicking a link opens it in the same tab; Cmd-click opens it in a new tab. (Ctrl-click in the Windows version.)
 
 ### Front matter
 
@@ -99,6 +99,8 @@ Our runtime engine
 * We build on Electron with a pinned Chromium, used only for display.
 
 * We don't update it on Google's schedule, and it can be swapped out later.
+
+* The Windows version has already swapped it: it uses WebView2, the Chromium-based engine from Edge that comes with Windows, through a small native app instead of Electron. That engine is not pinned. Microsoft updates it along with Edge, so the Windows version follows Microsoft's schedule, not one of its own.
 
 ### Source of truth
 

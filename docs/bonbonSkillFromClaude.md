@@ -7,13 +7,13 @@ description: How to help someone use BonBon, a browser for a web made of Markdow
 
 This is a note from one assistant to another. I'm Claude, and I worked with Dave Winer on BonBon as it was built. BonBon is new, its written docs are thin, and the people who try it will ask you things they can't look up yet. This is what I know, so you can answer them.
 
-DRAFT of 11/13/26, written for BonBon 0.6.46.
+DRAFT of 11/13/26, written for BonBon 0.6.46. Adapted for BonBon for Windows 1.0.0, a port of BonBon 0.6.56: the keys are the Windows ones, and where Windows differs it says so.
 
 ## How to use this
 
 1. Answer from what is written here. BonBon is too new for your training to know it, and it differs from other browsers in ways that make a plausible guess wrong.
 2. When the answer isn't here, say you don't know. Don't make up a menu command, a setting or a front matter field.
-3. When something looks like a bug, send the person to the issues section of the BonBon repo: https://github.com/scripting/bonBon/issues Help them write a good report: the BonBon version (it shows in the corner of the window), the address of the page, what they did, what they expected and what happened.
+3. When something looks like a bug, send the person to the issues section of the BonBon repo: https://github.com/scripting/bonBon/issues Help them write a good report: the BonBon version (it shows in the corner of the window), the address of the page, what they did, what they expected and what happened. A bug that only happens in the Windows version goes to its own repo instead: https://github.com/Latz/BonBon-Windows/issues
 4. Keep answers short and in plain steps. Most people asking are trying to do one thing.
 
 ## What BonBon is
@@ -26,7 +26,10 @@ DRAFT of 11/13/26, written for BonBon 0.6.46.
 
 ## Getting it
 
-1. The app runs on Macs with Apple silicon and on Linux with Intel-type chips. The download page: https://github.com/scripting/bonBon/tree/main/download
+1. The app runs on Windows 10 and 11 (64-bit, Intel-type chips), on Macs with Apple silicon and on Linux with Intel-type chips. The Windows version: https://github.com/Latz/BonBon-Windows/releases/latest/download/windows.zip The Mac and Linux versions are on the original's download page: https://github.com/scripting/bonBon/tree/main/download
+1. The Windows zip holds one folder, BonBon. Unzip it anywhere, open the folder and double-click `bonbon.exe`. `bonbon.exe`, `WebView2Loader.dll` and the `resources` folder must stay together. Nothing gets installed. To remove the app, delete the folder; the person's tabs, bookmarks and history stay in `%APPDATA%\BonBon` until they delete that too.
+1. The Windows app isn't signed. The first time someone opens it, Windows may say "Windows protected your PC". The way around it: click More info, then Run anyway. That's needed once.
+1. The Windows app needs the WebView2 Runtime, the browser engine of Edge. Windows 10 and 11 almost always have it. If the app says it's missing, it's at https://developer.microsoft.com/microsoft-edge/webview2/
 2. There is a version that runs in any web browser, nothing to install, for trying it out: https://demo.bonbonweb.org/
 3. The Mac app isn't signed with Apple. The first time someone opens it, macOS refuses. The way around it: try to open the app once, then go to System Settings, Privacy & Security, scroll down to the message about BonBon and click Open Anyway. That's needed once.
 4. The Linux zip holds one folder, BonBon. Unzip it anywhere. Open the folder and double-click the file named BonBon, or run `./BonBon` in a terminal from inside the folder. Nothing gets installed. To remove the app, delete the folder.
@@ -43,9 +46,9 @@ DRAFT of 11/13/26, written for BonBon 0.6.46.
 
 The top of the window, from the top down: the tabs, the address bar, the bookmarks bar. The page is below.
 
-1. Address bar. Type or paste an address and press Return. One click selects the whole address, a second click places the cursor.
+1. Address bar. Type or paste an address and press Enter. One click selects the whole address, a second click places the cursor.
 2. Typing a single word in the address bar (no dot, slash or colon) searches the site you're on, if that site has a search.
-3. Tabs work as in other browsers. Cmd-click a link to open it in a new tab. Drag a tab to reorder.
+3. Tabs work as in other browsers. Ctrl-click a link to open it in a new tab, or right-click it and choose Open Link in New Tab. That works for the bookmarks bar too. Drag a tab to reorder.
 4. The arrows at the top right of a page go to the page before and the page after, when the page or its site says what those are. On a blog they step through posts, days and months.
 5. The calendar beside the text, on a site that has one, is the site's table of contents by date. Click a day to go to it.
 6. The magnifying glass in the address bar searches the site. It's only there to use on sites that have a search.
@@ -53,18 +56,20 @@ The top of the window, from the top down: the tabs, the address bar, the bookmar
 8. The three dots at the right end of the address bar have Open Data Folder and View Source.
 9. Hover over a link and its address shows in the bottom left corner.
 
-The menus:
+The menus, in the menu bar at the top of the window. Alt opens the menu bar, and Alt with a letter opens one menu: Alt+O BonBon, Alt+F File, Alt+E Edit, Alt+V View, Alt+S History, Alt+B Bookmarks, Alt+W Window.
 
-1. Bookmarks: Add Bookmark (Cmd-D), your bookmarks, Edit Bookmarks. Bookmarks are edited as an outline: a headline with headlines under it is a submenu, and a headline that's a single dash is a separator line.
+1. Bookmarks: Add Bookmark (Ctrl+D), your bookmarks, Edit Bookmarks. Bookmarks are edited as an outline: a headline with headlines under it is a submenu, and a headline that's a single dash is a separator line. If Ctrl+D does nothing, another program on the computer has taken the key; the menu command still works.
 2. The bookmarks bar holds the items under the headline named "Bookmarks bar" in that outline. Drop a link or the icon from the address bar on the bar to add it.
-3. History: Home (Cmd-Shift-H), Back (Cmd-[), Forward (Cmd-]), then the pages you've been to, newest first.
-4. View: Reload This Page (Cmd-R), View Source (Cmd-Option-U), Developer Tools (Cmd-Option-I).
-5. Find in the page is Cmd-F. Return goes to the next match, Shift-Return to the one before, Escape closes it.
-6. Right-click on the page: on a link, Open Link in New Tab and Copy Link Address; anywhere, View Page Source and Inspect.
+3. History: Home (Ctrl+Shift+H), Back (Ctrl+[), Forward (Ctrl+]), then the pages you've been to, newest first. Ctrl+[ and Ctrl+] are where those keys are on a US keyboard; on other keyboards, use the arrows in the address bar or the History menu.
+4. View: Reload This Page (Ctrl+R), View Source (Ctrl+Alt+U), Developer Tools (Ctrl+Alt+I). Developer Tools opens DevTools, and the same command again closes them.
+5. File: New Tab (Ctrl+T), Close Tab (Ctrl+W), Open Data Folder.
+6. Find in the page is Ctrl+F. Enter goes to the next match, Shift+Enter to the one before, Escape closes it.
+7. Right-click on the page: on a link, Open Link in New Tab and Copy Link Address; anywhere, View Page Source and Inspect. Inspect opens DevTools with the element under the pointer selected.
+8. View Source opens the page's text in a window of its own. It has the same menu bar; Edit's commands (Select All, Copy) work on the source.
 
 What happens with things that aren't Markdown:
 
-1. A click on a link to an HTML page opens it in your historic browser, meaning Chrome, Safari or whichever browser you use for the HTML web. BonBon stays where it was.
+1. A click on a link to an HTML page opens it in your historic browser, meaning Edge, Chrome, Firefox or whichever browser Windows has as the default for the HTML web. BonBon stays where it was.
 2. An HTML address you type yourself shows the page's source, as text.
 3. XML, OPML, JSON and source code (JavaScript, CSS, Python and many others) are shown as text, in color.
 4. A picture is shown by itself, centered.
@@ -76,7 +81,8 @@ Some sites update the page in front of you when the author changes it. Nothing t
 
 ## Making it yours
 
-1. Open Data Folder, in the three dots menu, shows where BonBon keeps its files.
+1. Open Data Folder, in the three dots menu or the File menu, shows where BonBon keeps its files. On Windows that's `%APPDATA%\BonBon`, the same folder the Electron version of BonBon used, so tabs, bookmarks and history carry over.
+1. Only one BonBon runs at a time on Windows. Starting it again, or clicking a `bon://` link anywhere, opens the address in a new tab of the BonBon that's running.
 2. The stylesheets are plain CSS files in the stylesheets folder there. Edit one, add one or rename one, and it shows up under the A button. BonBon never overwrites a stylesheet you've changed.
 3. config.json in the data folder has a setting, urlUserCss, the address of a stylesheet of your own. Its rules win over everything in the window, not only the page.
 

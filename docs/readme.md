@@ -1,5 +1,7 @@
 # Docs
 
+*Note for the Windows version: these docs come from the [original BonBon](https://github.com/scripting/bonBon/tree/main/docs). The [handoff doc](bonbonSkillFromClaude.md), the [charter](charter.md) and [Hello world](helloworld.md) have been adapted for Windows: the Windows keys, how to download and run it, and where it differs. The text below is the original's, unchanged.*
+
 ### Background
 
 Claude and I started writing docs and didn't like anything we produced, and it was very slow going, but I decided to write the docs myself because I had delegated it to Claude for an earlier project and found the docs were so verbose and technical that I felt they were ineffective.  

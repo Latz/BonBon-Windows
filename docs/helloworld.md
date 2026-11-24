@@ -10,7 +10,7 @@ A few short steps to create a Markdown file for viewing in BonBon.
 
 4. In the upper right corner of the window, [click Raw](https://imgs.scripting.com/2026/11/16/pointingAtRaw.png). That takes us to the plain Markdown source code at a long URL, visible in the browser address bar. Copy the [URL](https://gist.githubusercontent.com/scripting/1ae7ab5a8da6accbc4202274cc4301ae/raw/18d88689d1cb43e886f5f24a2db3016aacdf997b/hello.md) to the clipboard.
 
-5. Bring BonBon to the front, paste the URL into its address bar and press return. 
+5. Bring BonBon to the front, paste the URL into its address bar (Ctrl+V) and press Enter. 
 
 6. If all went well you'll see something [like this](https://imgs.scripting.com/2026/11/16/victory.png). 
 
