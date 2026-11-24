@@ -18,3 +18,9 @@ task test, "Run the unit tests":
 task e2e, "Build build/bonbon.exe and run the end-to-end tests (needs a desktop and WebView2)":
   exec "nim c --hints:off -o:build/bonbon.exe src/bonbon.nim"
   exec "nim c -r --hints:off tests/e2e.nim"
+
+task release, "Test, build and publish this version on GitHub, its text from CHANGELOG.md (see tools/release.ps1)":
+  exec "powershell -NoProfile -ExecutionPolicy Bypass -File tools/release.ps1"
+
+task dryrelease, "Everything release does except publishing; the files are left in dist":
+  exec "powershell -NoProfile -ExecutionPolicy Bypass -File tools/release.ps1 -DryRun"

@@ -4,3 +4,4 @@
 nimcache/
 build/
 tests/*.exe
+dist/

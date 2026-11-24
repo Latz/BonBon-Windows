@@ -108,6 +108,15 @@ The icon and the manifest are in `src/bonbon_res.o`. After changing `resources/b
 cd resources && windres -F pe-x86-64 bonbon.rc -O coff -o ../src/bonbon_res.o
 ```
 
+## Releasing
+
+1. Raise the version in its three places: `version` in `bonbon.nimble`, `appVersion` in `src/datafolder.nim`, and the `assemblyIdentity` in `resources/bonbon.manifest`. Then regenerate `src/bonbon_res.o` as above.
+2. Write the version's section in `CHANGELOG.md`: `## 1.2.3` and what's new.
+3. Commit and push to `main`.
+4. `nimble release`.
+
+`nimble release` stops if the three versions differ, if you're not on `main` or have changes that aren't committed or pushed, if the tag exists already, or if `CHANGELOG.md` has no section for the version. Then it runs the unit and end-to-end tests, builds the exe into `dist\`, and publishes it on GitHub as `bonbon.exe`, `windows.zip` and `BonBon-<version>-windows-x64.zip`, with the checksums. The release's text is the `CHANGELOG.md` section. `nimble dryrelease` does all of that except publishing, and only warns about the git checks, so you can try it on any branch.
+
 ## Files
 
 | File | In the original |
