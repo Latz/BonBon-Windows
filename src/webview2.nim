@@ -3,10 +3,12 @@
 ## WebView2 is COM: every object is a pointer to a table of functions. The
 ## numbers below are each function's place in its table, counted in
 ## WebView2.h from the Microsoft.Web.WebView2 SDK 1.0.4370.26 (the first three
-## are always QueryInterface, AddRef, Release). WebView2Loader.dll, from the
-## same package, sits beside bonbon.exe and finds the runtime Windows has.
+## are always QueryInterface, AddRef, Release). The runtime Windows has is
+## found here, see THE LOADER; WebView2Loader.dll, from the same package, is
+## the fallback, carried inside bonbon.exe.
 
-import winim/lean, winim/inc/objbase
+import std/[os, strutils]
+import winim/lean, winim/inc/[objbase, winreg]
 
 type
   Callback* = proc (a, b: pointer): HRESULT {.closure.}
@@ -65,17 +67,66 @@ proc addEvent(obj: pointer, ix: int, fn: Callback) =
 
 # ---------------------------------------------------------------- the environment and the controller
 
-proc CreateCoreWebView2EnvironmentWithOptions(browserExecutableFolder, userDataFolder: LPCWSTR,
-  environmentOptions, environmentCreatedHandler: pointer): HRESULT {.stdcall, dynlib: "WebView2Loader.dll", importc.}
+#[ THE LOADER. WebView2Loader.dll finds the WebView2 runtime Windows has and
+   asks it for an environment; this does the same, so bonbon.exe needs no DLL
+   beside it. The runtime says where it is in the registry, under the stable
+   channel's ClientState key, value EBWebView, in the 32-bit view; HKLM is a
+   machine-wide install, HKCU one for this user. Its EmbeddedBrowserWebView.dll
+   has the entry point the loader calls. It's the way webview/webview does it
+   (loader.hh, its built-in loader). When that can't be done, the real
+   WebView2Loader.dll, which bonbon.exe carries, is unpacked and used. ]#
 
-proc createEnvironment*(userDataFolder: string, done: proc (env: pointer)): HRESULT =
-  ## done gets nil when there's no WebView2 runtime
-  CreateCoreWebView2EnvironmentWithOptions(nil, &(+$userDataFolder), nil, handler(proc (a, b: pointer): HRESULT =
+const
+  runtimeKey = r"SOFTWARE\Microsoft\EdgeUpdate\ClientState\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+  minRuntimeBuild = 1150 ## the third part of the runtime's version; the calls BonBon makes are all older
+  RRF_SUBKEY_WOW6432KEY = 0x00020000
+
+type
+  CreateInternal = proc (checkRunningInstance: bool, runtimeType: int32, userDataFolder: LPCWSTR,
+    options, handler: pointer): HRESULT {.stdcall.}
+  CreateWithOptions = proc (browserFolder, userDataFolder: LPCWSTR, options, handler: pointer): HRESULT {.stdcall.}
+
+proc regString(root: HKEY, subKey, name: string): string =
+  var size: DWORD
+  let flags = DWORD(RRF_RT_REG_SZ or RRF_SUBKEY_WOW6432KEY)
+  if RegGetValueW(root, subKey, name, flags, nil, nil, addr size) != ERROR_SUCCESS or size < 2: return ""
+  var buf = newWString(int(size div 2))
+  if RegGetValueW(root, subKey, name, flags, nil, &buf, addr size) != ERROR_SUCCESS: return ""
+  ($buf).split('\0')[0]
+
+proc findRuntimeClientDll*(): string =
+  ## the runtime's EmbeddedBrowserWebView.dll, "" when there's no runtime new enough
+  for root in [HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER]:
+    let folder = regString(root, runtimeKey, "EBWebView") # ...\EdgeWebView\Application\158.0.4370.33
+    let parts = folder.extractFilename.split('.')
+    if parts.len < 3: continue
+    let build = try: parseInt(parts[2]) except ValueError: 0
+    if build < minRuntimeBuild: continue
+    let dll = folder / "EBWebView" / "x64" / "EmbeddedBrowserWebView.dll"
+    if fileExists(dll): return dll
+
+proc createEnvironment*(userDataFolder: string, loaderDll: proc (): string, done: proc (env: pointer)): HRESULT =
+  ## done gets nil when the runtime can't make one; loaderDll answers the
+  ## path of WebView2Loader.dll, for when the runtime can't be found here
+  let h = handler(proc (a, b: pointer): HRESULT =
     if cast[HRESULT](cast[int](a)) == S_OK and b != nil:
       discard callP(b, 1, nil) # AddRef: we keep it
       done(b)
     else: done(nil)
-    S_OK))
+    S_OK)
+  var folder = +$userDataFolder
+  result = E_FAIL
+  if getEnv("BONBON_LOADER") != "dll": # the variable is for trying the other way
+    let client = findRuntimeClientDll()
+    let lib = if client.len > 0: LoadLibraryW(client) else: 0
+    let fn = if lib != 0: cast[CreateInternal](GetProcAddress(lib, "CreateWebViewEnvironmentWithOptionsInternal")) else: nil
+    if fn != nil:
+      result = fn(true, 0, &folder, nil, h) # 0: an installed runtime
+      if result == S_OK: return
+  let path = loaderDll()
+  let lib = if path.len > 0: LoadLibraryW(path) else: 0
+  let fn = if lib != 0: cast[CreateWithOptions](GetProcAddress(lib, "CreateCoreWebView2EnvironmentWithOptions")) else: nil
+  if fn != nil: result = fn(nil, &folder, nil, h)
 
 proc createController*(env: pointer, hwnd: HWND, done: proc (ctrl: pointer)) =
   discard callPP(env, 3, cast[pointer](hwnd), handler(proc (a, b: pointer): HRESULT =

@@ -1,7 +1,7 @@
 # BonBon for Windows -- a browser for a web made of Markdown files, native, in Nim.
 # Port of BonBon 0.6.56 (Electron) by Dave Winer.
 
-version       = "1.0.2"
+version       = "1.0.3"
 author        = "Dave Winer (original), Windows port"
 description   = "A browser for a web made of Markdown files, native Windows version."
 license       = "MIT"
@@ -12,9 +12,9 @@ requires "nim >= 2.2.0", "winim >= 3.9.4"
 
 task test, "Run the unit tests":
   for f in ["test_urls", "test_opml", "test_requests",
-            "test_server", "test_datafolder", "test_misc"]:
+            "test_server", "test_datafolder", "test_misc", "test_embedded"]:
     exec "nim c -r --hints:off tests/" & f & ".nim"
 
-task e2e, "Build build/bonbon.exe and run the end-to-end tests (needs a desktop, WebView2 and WebView2Loader.dll in build)":
+task e2e, "Build build/bonbon.exe and run the end-to-end tests (needs a desktop and WebView2)":
   exec "nim c --hints:off -o:build/bonbon.exe src/bonbon.nim"
   exec "nim c -r --hints:off tests/e2e.nim"

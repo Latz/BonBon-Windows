@@ -26,8 +26,8 @@ DRAFT of 11/13/26, written for BonBon 0.6.46. Adapted for BonBon for Windows, a 
 
 ## Getting it
 
-1. The app runs on Windows 10 and 11 (64-bit, Intel-type chips), on Macs with Apple silicon and on Linux with Intel-type chips. The Windows version: https://github.com/Latz/BonBon-Windows/releases/latest/download/windows.zip The Mac and Linux versions are on the original's download page: https://github.com/scripting/bonBon/tree/main/download
-1. The Windows zip holds one folder, BonBon. Unzip it anywhere, open the folder and double-click `bonbon.exe`. `bonbon.exe`, `WebView2Loader.dll` and the `resources` folder must stay together. Nothing gets installed. To remove the app, delete the folder; the person's tabs, bookmarks and history stay in `%APPDATA%\BonBon` until they delete that too.
+1. The app runs on Windows 10 and 11 (64-bit, Intel-type chips), on Macs with Apple silicon and on Linux with Intel-type chips. The Windows version: https://github.com/Latz/BonBon-Windows/releases/latest/download/bonbon.exe The Mac and Linux versions are on the original's download page: https://github.com/scripting/bonBon/tree/main/download
+1. The Windows version is one file, `bonbon.exe`. Put it anywhere and double-click it. Nothing gets installed. On its first start it unpacks its own files to `%LOCALAPPDATA%\BonBon\resources`, a cache that's safe to delete. To remove the app, delete `bonbon.exe` and that folder; the person's tabs, bookmarks and history stay in `%APPDATA%\BonBon` until they delete that too.
 1. The Windows app isn't signed. The first time someone opens it, Windows may say "Windows protected your PC". The way around it: click More info, then Run anyway. That's needed once.
 1. The Windows app needs the WebView2 Runtime, the browser engine of Edge. Windows 10 and 11 almost always have it. If the app says it's missing, it's at https://developer.microsoft.com/microsoft-edge/webview2/
 2. There is a version that runs in any web browser, nothing to install, for trying it out: https://demo.bonbonweb.org/

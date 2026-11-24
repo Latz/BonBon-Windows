@@ -10,7 +10,7 @@
 
 import std/[os, strutils, json, tables, algorithm, sequtils, hashes]
 import winim/lean, winim/inc/[shellapi, winreg, objbase]
-import urls, requests, datafolder, workers, winutil, webview2
+import urls, requests, datafolder, workers, winutil, webview2, embedded
 
 const
   classSource = "BonBonSource"
@@ -321,7 +321,8 @@ proc doCommand(id: int, hwnd = hwndMain, ctrl = ctrlMain) =
   if id > ord(high(Cmd)): return
   case Cmd(id)
   of cmdAbout:
-    discard MessageBoxW(hwndMain, appName & "\nVersion " & appVersion, "About " & appName, MB_OK or MB_ICONINFORMATION)
+    discard MessageBoxW(hwndMain, appName & " for Windows\nVersion " & appVersion &
+      "\n\nBased on BonBon 0.6.56 by Dave Winer.\nMIT License, Copyright (c) 2026 Dave Winer.", "About " & appName, MB_OK or MB_ICONINFORMATION)
   of cmdQuit: discard PostMessageW(hwndMain, WM_CLOSE, 0, 0)
   of cmdNewTab: sendCommand("newTab")
   of cmdCloseTab: sendCommand("closeTab")
@@ -762,7 +763,9 @@ proc mainProc(hwnd: HWND, msg: UINT, wParam: WPARAM, lParam: LPARAM): LRESULT {.
 
 proc startPage() =
   ## WebView2 in the window, the shell page in it
-  let hr = createEnvironment(dataFolder(), proc (e: pointer) =
+  let loaderDll = proc (): string =
+    try: unpackLoaderDll(resourcesFolder()) except CatchableError: ""
+  let hr = createEnvironment(dataFolder(), loaderDll, proc (e: pointer) =
     if e == nil:
       discard MessageBoxW(hwndMain, "BonBon needs the Microsoft Edge WebView2 Runtime, and it isn't installed. It comes from https://developer.microsoft.com/microsoft-edge/webview2/", appName, MB_OK or MB_ICONERROR)
       discard DestroyWindow(hwndMain)
@@ -784,7 +787,7 @@ proc startPage() =
       moveFocus(ctrl)
       navigate(wvMain, urlShellPage)))
   if hr != S_OK:
-    discard MessageBoxW(hwndMain, "BonBon can't start WebView2 (error 0x" & toHex(int32 hr) & "). WebView2Loader.dll has to be beside bonbon.exe.", appName, MB_OK or MB_ICONERROR)
+    discard MessageBoxW(hwndMain, "BonBon can't start WebView2 (error 0x" & toHex(int32 hr) & "). It needs the Microsoft Edge WebView2 Runtime, which comes from https://developer.microsoft.com/microsoft-edge/webview2/", appName, MB_OK or MB_ICONERROR)
     discard DestroyWindow(hwndMain)
 
 proc createWindow() =

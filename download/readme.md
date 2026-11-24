@@ -2,9 +2,9 @@
 
 ### Windows download
 
-Download and expand [this zip file](https://github.com/Latz/BonBon-Windows/releases/latest/download/windows.zip).
+Download [bonbon.exe](https://github.com/Latz/BonBon-Windows/releases/latest/download/bonbon.exe), put it anywhere, and launch it.
 
-It contains one folder, BonBon, which contains `bonbon.exe` plus the files it needs beside it. Keep them together, and launch `bonbon.exe`.
+It's one file with everything it needs. If you'd rather have it in a zip file, with the license beside it, there's [this zip file](https://github.com/Latz/BonBon-Windows/releases/latest/download/windows.zip).
 
 When you run it the first time, Windows may say "Windows protected your PC". BonBon for Windows isn't signed with a code-signing certificate yet, so SmartScreen doesn't know it. Click "More info", then "Run anyway". You only have to do this once.
 

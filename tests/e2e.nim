@@ -5,8 +5,8 @@
 ## WM_COMMAND with the id of the item that has that label), and looks
 ## inside the page through the Chrome DevTools Protocol, which WebView2
 ## opens when it's started with a debugging port. Run with `nimble e2e`;
-## it needs a desktop, the WebView2 runtime and build\bonbon.exe with
-## WebView2Loader.dll beside it.
+## it needs a desktop, the WebView2 runtime and build\bonbon.exe, by itself:
+## the app carries its files and finds the runtime on its own.
 
 import std/[unittest, asynchttpserver, asyncdispatch, strutils, json, os, osproc, strtabs, times, sequtils]
 import winim/lean, winim/inc/winhttp
@@ -59,6 +59,7 @@ proc launch(args: openArray[string] = []): Process =
   var env = newStringTable(modeCaseInsensitive)
   for k, v in envPairs(): env[k] = v
   env["APPDATA"] = dataRoot
+  env["LOCALAPPDATA"] = dataRoot / "local" # where the app unpacks its files: fresh each run
   env["BONBON_E2E"] = "1"
   env["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = "--remote-debugging-port=" & $debugPort
   startProcess(exe, args = args, env = env, options = {})
@@ -212,7 +213,6 @@ proc waitForJs(expression: string, timeout = 15.0) =
 createDir(dataDir)
 writeFile(dataDir / "config.json", $(%*{"urlHomePage": base & "/index.md", "urlHitCounterServer": base & "/hello"})) # the hit counter counts here, not at scripting.com
 doAssert fileExists(exe), "build bonbon.exe first: nimble e2e does"
-doAssert fileExists(exe.parentDir / "WebView2Loader.dll"), "WebView2Loader.dll has to be beside " & exe
 let app = launch()
 waitUntil("the window", proc (): bool = mainWindow(app) != 0)
 connectPage()
@@ -233,6 +233,15 @@ suite "the first run":
               "handlers" / "system" / "json" / "handler.js"]:
       check fileExists(dataDir / f)
     waitUntil("bookmarks.opml", proc (): bool = fileExists(dataDir / "bookmarks.opml"))
+  test "the app's files come out of the exe, and the runtime is found without WebView2Loader.dll":
+    var folders: seq[string]
+    for kind, path in walkDir(dataRoot / "local" / "BonBon" / "resources"):
+      if kind == pcDir: folders.add path
+    check folders.len == 1
+    if folders.len == 1:
+      check fileExists(folders[0] / ".complete")
+      check fileExists(folders[0] / "app" / "index.html")
+      check not fileExists(folders[0] / "WebView2Loader.dll") # unpacked only when the app's own loader fails
     check "Bookmarks bar" in readFile(dataDir / "bookmarks.opml")
 
 suite "pages":

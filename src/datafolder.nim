@@ -3,11 +3,11 @@
 ## history.json, urlHistory.json and config.json carry over.
 
 import std/[os, json, strutils]
-import urls
+import urls, embedded
 
 const
   appName* = "BonBon"
-  appVersion* = "1.0.2"
+  appVersion* = "1.0.3"
   fnameConfig = "config.json"
   maxUrlHistory* = 10000
 
@@ -15,10 +15,16 @@ proc dataFolder*(): string =
   result = getEnv("APPDATA") / appName
   createDir(result)
 
+var unpacked: string ## resourcesFolder, once it's been unpacked
+
 proc resourcesFolder*(): string =
-  ## the app's own files: config.json's seed, the handlers, the shell page (app)
-  result = getAppDir() / "resources"
-  if not dirExists(result): result = getAppDir().parentDir / "resources"
+  ## the app's own files: config.json's seed, the handlers, the shell page
+  ## (app). They're in bonbon.exe and unpacked, on the first start of a
+  ## build, to %LOCALAPPDATA%\BonBon\resources; a cache, so not in the
+  ## roaming data folder.
+  if unpacked.len == 0:
+    unpacked = unpack(getEnv("LOCALAPPDATA", getTempDir()) / appName / "resources")
+  unpacked
 
 # ---------------------------------------------------------------- config
 
