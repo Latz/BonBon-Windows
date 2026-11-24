@@ -57,7 +57,7 @@ What `main.js` and `preload.js` do in Electron is done here by a small app in [N
 Added or changed for Windows:
 
 - **One file.** `bonbon.exe` carries everything it needs: the original's interface, the stylesheets, the handlers and the seed of `config.json`. On its first start, and after an update, it unpacks them to `%LOCALAPPDATA%\BonBon\resources`. It finds the WebView2 runtime on its own, the way `WebView2Loader.dll` does, so it needs no DLL beside it. If that ever fails, it falls back to the real `WebView2Loader.dll`, which it also carries.
-- **Dark mode.** When Windows is set to dark apps, WebView2 draws the page dark, and the rest of the window follows: the title bar, the menu bar and its menus, the right-click menu, the tab strip, the address and bookmarks bars, the menus and dialogs of the interface, and the View Source window. The colors are Chrome's dark theme. Switch Windows between light and dark and BonBon follows at once. The original's interface stays as it was; `src/dark.css` is laid over it. The message boxes (About, error messages) stay light, because Windows doesn't offer them dark.
+- **Dark mode.** When Windows is set to dark apps, WebView2 draws the page dark, and the rest of the window follows: the title bar, the menu bar and its menus, the right-click menu, the tab strip, the address and bookmarks bars, the menus and dialogs of the interface, and the View Source window. The colors are Chrome's dark theme. Switch Windows between light and dark and BonBon follows at once. The original's interface stays as it was; `src/dark.css` is laid over it. Windows has no dark message box, so in dark mode BonBon draws its own for the About box and its error messages; in light mode they're Windows' own, as before.
 - **Menus.** The menu bar uses Windows conventions. Alt opens it, and Alt plus a letter opens one menu, even when the page has the focus: Alt+F File, Alt+E Edit, Alt+V View, Alt+S History, Alt+B Bookmarks, Alt+W Window, Alt+O BonBon. AltGr still types characters such as `@`.
 - **Ctrl-click.** Ctrl-click on a link, or on an item in the bookmarks bar, opens it in a new tab behind the current one, as Cmd-click does on a Mac. The original asks for the Mac's Cmd key, which on Windows is the Windows key, so the bridge counts Ctrl as Cmd for mouse clicks.
 - **View Source windows.** They have the same menu bar as the main window, as every Electron window has the application menu. Edit and Window act on the source window; all other commands act on the main window. A source window has no context menu and no browser keys such as Ctrl+P, as in Electron. Sources over 2 MB are shown too.
@@ -119,7 +119,7 @@ cd resources && windres -F pe-x86-64 bonbon.rc -O coff -o ../src/bonbon_res.o
 | `src/workers.nim` | background threads for the requests |
 | `src/webview2.nim` | the WebView2 COM calls BonBon uses, and finding the runtime |
 | `src/embedded.nim` | `resources\` and WebView2Loader.dll inside the exe, unpacked on the first start |
-| `src/darkmode.nim` | dark mode for what Windows draws: title bar, menu bar, menus |
+| `src/darkmode.nim` | dark mode for what Windows draws: title bar, menu bar, menus, message boxes |
 | `src/dark.css` | dark mode for the original's interface, added by bridge.js |
 
 ## License

@@ -8,8 +8,10 @@
 ## ordinal) and the menu bar, which Windows draws light even then, so it's
 ## drawn here (the UAH messages, also undocumented; the way adzm/win32-darkmode
 ## does it). When a call isn't there, nothing happens and that part stays light.
+## Windows has no dark message box, so in dark mode messageBox draws its own.
 
 import winim/lean, winim/inc/winreg
+import winutil
 
 const
   colorBar* = 0x00242120'i32       ## #202124 as a COLORREF (0x00BBGGRR): the bar, Chrome's tab strip
@@ -145,6 +147,129 @@ proc handleMenuBar*(hwnd: HWND, msg: UINT, wParam: WPARAM, lParam: LPARAM, answe
     drawBottomLine(hwnd)
     true
   else: false
+
+# ---------------------------------------------------------------- message boxes
+
+const
+  classMessage = "BonBonMessage"
+  colorDialog = 0x002D2A29'i32 ## #292a2d, the dialogs' color in dark.css
+  colorLine = 0x0068635F'i32   ## #5f6368
+
+var
+  messageText: string    ## the one message box showing; it's modal, so there's only ever one
+  messageIcon: HICON
+  messageDone = true
+  brushDialog, brushLine: HBRUSH
+  fontMessage: HFONT
+
+proc footerHeight(): int32 = px(52)
+
+proc messageProc(hwnd: HWND, msg: UINT, wParam: WPARAM, lParam: LPARAM): LRESULT {.stdcall.} =
+  case msg
+  of WM_PAINT:
+    var ps: PAINTSTRUCT
+    let hdc = BeginPaint(hwnd, addr ps)
+    var rc: RECT
+    discard GetClientRect(hwnd, addr rc)
+    var rcFooter = rc
+    rcFooter.top = rc.bottom - footerHeight()
+    var rcBody = rc
+    rcBody.bottom = rcFooter.top
+    discard FillRect(hdc, addr rcBody, brushDialog)
+    discard FillRect(hdc, addr rcFooter, brushBar) # the footer, as in the page's dialogs
+    discard DrawIconEx(hdc, px(20), px(20), messageIcon, px(32), px(32), 0, 0, DI_NORMAL)
+    discard SetBkMode(hdc, TRANSPARENT)
+    discard SetTextColor(hdc, COLORREF colorText)
+    let old = SelectObject(hdc, fontMessage)
+    var rcText = RECT(left: px(68), top: px(20), right: rc.right - px(20), bottom: rcFooter.top - px(12))
+    discard DrawTextW(hdc, messageText, -1, addr rcText, DT_WORDBREAK or DT_NOPREFIX)
+    discard SelectObject(hdc, old)
+    discard EndPaint(hwnd, addr ps)
+    return 0
+  of WM_DRAWITEM: # the OK button
+    let dis = cast[ptr DRAWITEMSTRUCT](lParam)
+    var rc = dis.rcItem
+    discard FillRect(dis.hDC, addr rc, if (dis.itemState and ODS_SELECTED) != 0: brushLine else: brushHot)
+    discard FrameRect(dis.hDC, addr rc, if (dis.itemState and ODS_FOCUS) != 0: brushLine else: brushHot)
+    discard SetBkMode(dis.hDC, TRANSPARENT)
+    discard SetTextColor(dis.hDC, COLORREF colorText)
+    let old = SelectObject(dis.hDC, fontMessage)
+    discard DrawTextW(dis.hDC, "OK", -1, addr rc, DT_CENTER or DT_VCENTER or DT_SINGLELINE)
+    discard SelectObject(dis.hDC, old)
+    return TRUE
+  of WM_COMMAND: # OK, Enter or Escape
+    if int(LOWORD(wParam)) in [IDOK, IDCANCEL]: discard DestroyWindow(hwnd)
+    return 0
+  of WM_DESTROY:
+    messageDone = true
+    return 0
+  else: discard
+  DefWindowProcW(hwnd, msg, wParam, lParam)
+
+proc messageBox*(owner: HWND, text, caption: string, error = false) =
+  ## a message with an OK button, modal over owner: Windows' own in light
+  ## mode, one drawn here in dark mode, since Windows has no dark one
+  if not flDark:
+    discard MessageBoxW(owner, text, caption, UINT(MB_OK or (if error: MB_ICONERROR else: MB_ICONINFORMATION)))
+    return
+  let hInst = GetModuleHandleW(nil)
+  if brushDialog == 0:
+    brushDialog = CreateSolidBrush(COLORREF colorDialog)
+    brushLine = CreateSolidBrush(COLORREF colorLine)
+    var ncm = NONCLIENTMETRICSW(cbSize: UINT sizeof(NONCLIENTMETRICSW))
+    if SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, ncm.cbSize, addr ncm, 0) != 0:
+      fontMessage = CreateFontIndirectW(addr ncm.lfMessageFont)
+    var wc = WNDCLASSEXW(cbSize: UINT sizeof(WNDCLASSEXW), lpfnWndProc: messageProc, hInstance: hInst,
+      hCursor: LoadCursorW(0, IDC_ARROW), hbrBackground: brushDialog, lpszClassName: classMessage)
+    discard RegisterClassExW(addr wc)
+  messageText = text
+  messageIcon = LoadIconW(0, if error: IDI_ERROR else: IDI_INFORMATION)
+  # the size: the text wrapped at a reasonable width, the icon at its left, the footer with the button under it
+  let hdc = GetDC(0)
+  let old = SelectObject(hdc, fontMessage)
+  var rcText = RECT(left: 0, top: 0, right: px(360), bottom: 0)
+  discard DrawTextW(hdc, text, -1, addr rcText, DT_WORDBREAK or DT_NOPREFIX or DT_CALCRECT)
+  discard SelectObject(hdc, old)
+  discard ReleaseDC(0, hdc)
+  var rc = RECT(left: 0, top: 0, right: max(px(68) + rcText.right + px(20), px(300)),
+    bottom: px(20) + max(rcText.bottom, px(32)) + px(20) + footerHeight())
+  let style = DWORD(WS_POPUP or WS_CAPTION or WS_SYSMENU)
+  let exStyle = DWORD(WS_EX_DLGMODALFRAME)
+  let clientW = rc.right
+  let clientH = rc.bottom
+  discard AdjustWindowRectEx(addr rc, style, FALSE, exStyle)
+  let w = rc.right - rc.left
+  let h = rc.bottom - rc.top
+  var rcOwner: RECT
+  if owner == 0 or IsWindowVisible(owner) == 0 or GetWindowRect(owner, addr rcOwner) == 0:
+    discard SystemParametersInfoW(SPI_GETWORKAREA, 0, addr rcOwner, 0)
+  let x = rcOwner.left + (rcOwner.right - rcOwner.left - w) div 2
+  let y = rcOwner.top + (rcOwner.bottom - rcOwner.top - h) div 2
+  let hwnd = CreateWindowExW(exStyle, classMessage, caption, style, x, y, w, h, owner, 0, hInst, nil)
+  if hwnd == 0: # can't make one: Windows' own, light
+    discard MessageBoxW(owner, text, caption, UINT(MB_OK or (if error: MB_ICONERROR else: MB_ICONINFORMATION)))
+    return
+  let button = CreateWindowExW(0, "BUTTON", "OK", WS_CHILD or WS_VISIBLE or WS_TABSTOP or BS_OWNERDRAW,
+    clientW - px(20) - px(88), clientH - footerHeight() + px(12), px(88), px(28), hwnd, HMENU IDOK, hInst, nil)
+  var on: BOOL = TRUE
+  if DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, addr on, DWORD sizeof(on)) != S_OK:
+    discard DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE_OLD, addr on, DWORD sizeof(on))
+  if owner != 0: discard EnableWindow(owner, FALSE)
+  discard ShowWindow(hwnd, SW_SHOW)
+  discard SetFocus(button)
+  messageDone = false
+  var m: MSG
+  while not messageDone:
+    let r = GetMessageW(addr m, 0, 0, 0)
+    if r <= 0:
+      if r == 0: PostQuitMessage(int32 m.wParam) # the app is quitting: let the main loop see it too
+      break
+    if IsDialogMessageW(hwnd, addr m) == 0: # Enter and Escape become OK and Cancel
+      discard TranslateMessage(addr m)
+      discard DispatchMessageW(addr m)
+  if owner != 0:
+    discard EnableWindow(owner, TRUE)
+    discard SetForegroundWindow(owner)
 
 proc webViewBackground*(): uint32 =
   ## what's behind a page that has no background: white as in Electron, the bar's color in dark

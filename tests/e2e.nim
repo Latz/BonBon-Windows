@@ -321,6 +321,17 @@ suite "the menus":
     waitUntil("DevTools", proc (): bool = FindWindowW(nil, title) != 0)
     app.choose("Developer Tools")
     waitUntil("DevTools to close", proc (): bool = FindWindowW(nil, title) == 0)
+  test "About shows a message box, BonBon's own when Windows is dark, and OK closes it":
+    app.choose("About")
+    var box: HWND
+    waitUntil("the message box", proc (): bool =
+      let found = mainWindows(app.processID, "BonBonMessage") & mainWindows(app.processID, "#32770")
+      if found.len > 0: box = found[0][0]
+      box != 0)
+    check IsWindowEnabled(app.mainWindow) == 0 # modal
+    discard PostMessageW(box, WM_COMMAND, IDOK, 0)
+    waitUntil("the message box to close", proc (): bool = IsWindow(box) == 0)
+    check IsWindowEnabled(app.mainWindow) != 0
   test "Find opens the page's find bar":
     app.choose("Find...")
     waitForJs("getComputedStyle (document.querySelector ('.divFindBar')).display !== 'none'")
