@@ -4,7 +4,7 @@
 
 This is the **Windows version of BonBon**. The original, by Dave Winer, runs on macOS and Linux ([scripting/bonBon](https://github.com/scripting/bonBon)). This version runs on Windows 10 and 11. It has the original's interface, unchanged, and replaces Electron with a small native Windows app.
 
-To get it, download `BonBon-1.0.0-windows-x64.zip` from the [Releases page](https://github.com/Latz/BonBon-Windows/releases) and see [Installing](#installing) below.
+To get it, download [windows.zip](https://github.com/Latz/BonBon-Windows/releases/latest/download/windows.zip), which is always the latest version, and see [Installing](#installing) below.
 
 ## From the original README
 
@@ -22,11 +22,11 @@ This doc, and all other docs on this site were written by humans, unless otherwi
 
 ### How to
 
-To get started, get the app from the [Download page](https://github.com/scripting/bonBon/tree/main/download).
+To get started, get the app from the [Download page](download/).
 
 ### Docs
 
-Docs are in the [Docs folder](https://github.com/scripting/bonBon/tree/main/docs).
+Docs are in the [Docs folder](docs).
 
 ### Markdown hosting
 
@@ -73,7 +73,7 @@ Differences that remain:
 
 ## Installing
 
-1. Download `BonBon-1.0.0-windows-x64.zip` from the [Releases page](https://github.com/Latz/BonBon-Windows/releases) and unzip it anywhere.
+1. Download [windows.zip](https://github.com/Latz/BonBon-Windows/releases/latest/download/windows.zip), the latest version, and unzip it anywhere. Every version is also on the [Releases page](https://github.com/Latz/BonBon-Windows/releases).
 2. Run `bonbon.exe`.
 
 `bonbon.exe`, `WebView2Loader.dll` and the `resources` folder must stay together. BonBon needs the WebView2 Runtime, which Windows 10 and 11 usually already have. If yours doesn't, get it from [Microsoft](https://developer.microsoft.com/microsoft-edge/webview2/).
