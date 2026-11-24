@@ -95,6 +95,7 @@ On start, the app registers itself for `bon://` links under `HKCU\Software\Class
 nimble install winim
 nimble test                      # unit tests (some need the internet)
 nimble e2e                       # builds build\bonbon.exe and drives the real app (needs a desktop and WebView2)
+                                 # with BONBON_E2E_REAL_INPUT=1 also the test that uses the real mouse and keyboard
 nim c -o:bonbon.exe src/bonbon.nim
 ```
 

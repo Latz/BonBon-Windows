@@ -598,7 +598,6 @@ proc jobDone(r: JobResult) =
     else:
       writeText(fnameUserCss, r.text)
       reply(call.id, %r.text)
-  else: discard
 
 proc pageCall(message: string) =
   var m: JsonNode

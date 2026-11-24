@@ -117,6 +117,14 @@ proc menuLabels(p: Process, title: string): seq[string] =
         t.setLen int(GetMenuStringW(sub, UINT j, &t, 256, MF_BYPOSITION))
         result.add ($t).split('\t')[0]
 
+proc menuIndex(bar: HMENU, title: string): int =
+  ## the place of a menu in the menu bar, -1 when it isn't there
+  result = -1
+  for i in 0 ..< GetMenuItemCount(bar):
+    var w = newWString(256)
+    w.setLen int(GetMenuStringW(bar, UINT i, &w, 256, MF_BYPOSITION))
+    if ($w).replace("&", "") == title: return i
+
 proc menuLabelsOf(hwnd: HWND): seq[string] =
   ## the titles in this window's menu bar
   let bar = GetMenu(hwnd)
@@ -316,7 +324,25 @@ suite "the menus":
     app.choose("Find...")
     waitForJs("getComputedStyle (document.querySelector ('.divFindBar')).display !== 'none'")
     discard js("document.dispatchEvent (new KeyboardEvent ('keydown', {key: 'Escape'}))")
-  test "Alt+S in the page opens the History menu":
+  test "the menus' Alt letters: Alt+S opens History (the keys posted to the window, no real input)":
+    let hwnd = app.mainWindow
+    let host = FindWindowExW(hwnd, 0, "Chrome_WidgetWin_0", nil) # WebView2's window, which hands Alt keys to its parent as Windows does
+    check host != 0
+    proc keyLParam(vk: int, up: bool): LPARAM =
+      var l = 1 or (int(MapVirtualKeyW(UINT vk, 0)) shl 16) or 0x20000000 # one press, the scan code, Alt down
+      if up: l = l or int(0xC0000000'u32)
+      LPARAM l
+    for (msg, vk, up) in [(WM_SYSKEYDOWN, VK_MENU, false), (WM_SYSKEYDOWN, ord('S'), false),
+                          (WM_SYSKEYUP, ord('S'), true), (WM_SYSKEYUP, VK_MENU, true)]:
+      discard PostMessageW(host, UINT msg, WPARAM vk, keyLParam(vk, up))
+    let bar = GetMenu(hwnd)
+    let ix = menuIndex(bar, "History")
+    check ix != -1
+    waitUntil("the History menu", proc (): bool = (GetMenuState(bar, UINT ix, MF_BYPOSITION) and MF_HILITE) != 0)
+    discard SendMessageW(hwnd, WM_CANCELMODE, 0, 0)
+    waitUntil("the menu to close", proc (): bool = (GetMenuState(bar, UINT ix, MF_BYPOSITION) and MF_HILITE) == 0)
+  test "Alt+S with the focus in the page opens the History menu (a real click and real keys: BONBON_E2E_REAL_INPUT=1)":
+    if getEnv("BONBON_E2E_REAL_INPUT") != "1": skip() # it takes the mouse and the keyboard, so not while someone works at the computer
     let hwnd = app.mainWindow
     # a real click into the page, at its blank bottom-left: a test in the background can't SetForegroundWindow
     discard SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE or SWP_NOSIZE)
@@ -334,11 +360,7 @@ suite "the menus":
     sleep 300
     pressKeys([VK_MENU, ord('S')])
     let bar = GetMenu(hwnd)
-    var ix = -1
-    for i in 0 ..< GetMenuItemCount(bar):
-      var w = newWString(256)
-      w.setLen int(GetMenuStringW(bar, UINT i, &w, 256, MF_BYPOSITION))
-      if ($w).replace("&", "") == "History": ix = i
+    let ix = menuIndex(bar, "History")
     check ix != -1
     waitUntil("the History menu", proc (): bool = (GetMenuState(bar, UINT ix, MF_BYPOSITION) and MF_HILITE) != 0)
     pressKeys([VK_ESCAPE])
