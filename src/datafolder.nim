@@ -36,7 +36,8 @@ proc defaultConfig*(): JsonNode =
      "urlForHitCounter": "https://github.com/scripting/bonBon",
      "extensionsForTypes": {"application/json": "json", "application/javascript": "js",
        "application/x-javascript": "js", "text/javascript": "js"},
-     "ctSecsHandlerTimeout": 5, "flOpenPdfsInSystemViewer": false}
+     "ctSecsHandlerTimeout": 5, "flOpenPdfsInSystemViewer": false,
+     "flCheckForUpdates": true} # the Windows version's own: tell the reader about a new release, see bridge.js
 
 proc readConfig*(): JsonNode =
   ## config.json lives in the data folder; the one in the app is the seed. The

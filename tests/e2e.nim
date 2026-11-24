@@ -371,6 +371,24 @@ suite "the menus":
     pressKeys([VK_ESCAPE])
     pressKeys([VK_ESCAPE])
 
+suite "new versions":
+  test "a newer release on GitHub is offered in the confirm dialog, once":
+    let dialogText = "document.body.innerText" # what's showing; a closed dialog is hidden, so not in it
+    # GitHub's answer, made up here: what's offered doesn't depend on what's published
+    discard js("""(() => {
+      window.fetchBeforeTest = window.fetch;
+      window.fetch = (u) => u.includes ('api.github.com') ? Promise.resolve ({ok: true, json: () => Promise.resolve ({tag_name: 'v99.0.0', html_url: 'https://example.com/release'})}) : window.fetchBeforeTest (u);
+      localStorage.removeItem ('bonbonUpdateOffered');
+      return 1; })()""")
+    discard js("bonbonCheckForUpdates ().then (() => 1)")
+    waitForJs(dialogText & ".includes ('99.0.0 is available')")
+    discard js("[...document.querySelectorAll ('a.btn')].filter (e => e.offsetParent).find (e => e.textContent.trim () === 'Cancel').click ()")
+    waitForJs("!(" & dialogText & ").includes ('99.0.0')")
+    discard js("bonbonCheckForUpdates ().then (() => 1)") # the second time: not again
+    sleep 1000
+    check not js(dialogText & ".includes ('99.0.0')").getBool
+    discard js("window.fetch = window.fetchBeforeTest; 1")
+
 suite "downloads":
   test "a download asks where to save it, in Windows' Save As dialog, and Cancel saves nothing":
     let downloaded = getHomeDir() / "Downloads" / "bonbon-e2e.bin"

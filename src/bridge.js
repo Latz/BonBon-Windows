@@ -412,4 +412,52 @@
 			}
 		};
 	Object.freeze (window.mdBrowser); //contextBridge's object can't be changed by the page either
+
+	/*  NEW VERSIONS, the Windows version's own. A few seconds after the start
+		the app asks GitHub for its latest release; when it's newer than this
+		one and hasn't been offered before, the original's confirm dialog says
+		so, and OK opens its page in the reader's browser. Each version is
+		offered once. flCheckForUpdates false in config.json turns it off; no
+		answer (offline, a private repo, GitHub's limit) means no word.  */
+
+	const urlLatestRelease = "https://api.github.com/repos/Latz/BonBon-Windows/releases/latest";
+
+	function isNewerVersion (a, b) { //"1.0.10" is newer than "1.0.9"
+		const pa = a.split ("."), pb = b.split (".");
+		for (var i = 0; i < Math.max (pa.length, pb.length); i++) {
+			const x = parseInt (pa [i] || "0", 10) || 0, y = parseInt (pb [i] || "0", 10) || 0;
+			if (x !== y) {
+				return (x > y);
+				}
+			}
+		return (false);
+		}
+
+	function checkForUpdates () {
+		return (Promise.all ([invoke ("getConfig"), invoke ("getVersion")]).then (function ([config, version]) {
+			if (config.flCheckForUpdates === false) {
+				return;
+				}
+			return (fetch (urlLatestRelease).then (function (response) {
+				return (response.ok ? response.json () : undefined);
+				}).then (function (release) {
+				if ((release === undefined) || (typeof release.tag_name !== "string")) {
+					return;
+					}
+				const latest = release.tag_name.replace (/^v/, "");
+				if (!isNewerVersion (latest, version) || (localStorage.getItem ("bonbonUpdateOffered") === latest)) {
+					return;
+					}
+				localStorage.setItem ("bonbonUpdateOffered", latest);
+				confirmDialog ("BonBon for Windows " + latest + " is available; this is " + version + ". Open its download page?", function () {
+					invoke ("openInBrowser", release.html_url);
+					});
+				}));
+			}).catch (function () {
+			}));
+		}
+	Object.defineProperty (window, "bonbonCheckForUpdates", {value: checkForUpdates}); //for the tests
+	window.addEventListener ("load", function () {
+		setTimeout (checkForUpdates, 5000);
+		});
 	}) ();
