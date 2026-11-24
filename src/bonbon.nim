@@ -462,7 +462,7 @@ proc openSourceWindow(theUrl, theSource: string) =
   ## View Source in its own window: the text as it came, nothing else
   let title = "view-source:" & theUrl
   let htmltext = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>" & encodeHtml(title) &
-    "</title><style>body {margin: 0; padding: 20px 24px; font-family: Menlo, Monaco, monospace; font-size: 13px; line-height: 1.5; color: #222; background: #fff;} pre {margin: 0; white-space: pre-wrap; word-break: break-word;} @media (prefers-color-scheme: dark) {body {color: #e8eaed; background: #202124;}}</style></head><body><pre>" &
+    "</title><style>body {margin: 0; padding: 20px 24px; font-family: Menlo, Monaco, monospace; font-size: 13px; line-height: 1.5; color: #222; background: #fff;} pre {margin: 0; white-space: pre-wrap; word-break: break-word;} @media (prefers-color-scheme: dark) {:root {color-scheme: dark;} body {color: #e8eaed; background: #202124;}}</style></head><body><pre>" &
     encodeHtml(theSource) & "</pre></body></html>"
   let hwnd = CreateWindowExW(0, classSource, title, WS_OVERLAPPEDWINDOW or WS_CLIPCHILDREN or WS_VISIBLE,
     CW_USEDEFAULT, CW_USEDEFAULT, px(800), px(700), 0, 0, hInst, nil)
