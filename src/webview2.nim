@@ -145,12 +145,12 @@ proc notifyParentWindowPositionChanged*(ctrl: pointer) = discard call0(ctrl, 23)
 proc closeController*(ctrl: pointer) = discard call0(ctrl, 24)
 proc getWebView*(ctrl: pointer): pointer = discard callP(ctrl, 25, addr result)
 
-proc setBackgroundWhite*(ctrl: pointer) =
-  ## what's behind a page that sets no background: white, Electron's, not
-  ## WebView2's, which can be dark
+proc setBackgroundColor*(ctrl: pointer, color: uint32) =
+  ## what's behind a page that sets no background, rather than WebView2's
+  ## own: COREWEBVIEW2_COLOR, the bytes A, R, G, B, so 0x242120FF is #202124
   let ctrl2 = queryInterface(ctrl, DEFINE_GUID("c979903e-d4ca-4228-92eb-47ee3fa96eab")) # ICoreWebView2Controller2
   if ctrl2 == nil: return
-  discard cast[proc (this: pointer, color: uint32): HRESULT {.stdcall.}](fnAt(ctrl2, 27))(ctrl2, 0xFFFFFFFF'u32) # put_DefaultBackgroundColor, A R G B
+  discard cast[proc (this: pointer, color: uint32): HRESULT {.stdcall.}](fnAt(ctrl2, 27))(ctrl2, color) # put_DefaultBackgroundColor
   discard call0(ctrl2, 2)
 
 const

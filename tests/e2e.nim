@@ -269,6 +269,15 @@ suite "pages":
     let r = js("mdBrowser.getPage ('" & base & "/nothere.md')")
     check not r["flOk"].getBool and r["status"].getInt == 404
 
+suite "dark mode":
+  test "the interface turns dark with the page, and back":
+    check js("!!document.getElementById ('styleBonBonDark')").getBool
+    let chrome = "getComputedStyle (document.querySelector ('.divChrome')).backgroundColor"
+    for (scheme, color) in [("dark", "rgb(53, 54, 58)"), ("light", "rgb(240, 240, 240)")]: # #35363a, and index.css's #f0f0f0
+      discard send("Emulation.setEmulatedMedia", %*{"features": [{"name": "prefers-color-scheme", "value": scheme}]})
+      check js(chrome).getStr == color
+    discard send("Emulation.setEmulatedMedia", %*{"features": []}) # back to what Windows says
+
 suite "the stylesheets":
   test "listed from the data folder, served to the page":
     check js("mdBrowser.getStylesheets ().then (l => l.map (s => s.name).join (','))").getStr ==

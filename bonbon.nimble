@@ -12,7 +12,7 @@ requires "nim >= 2.2.0", "winim >= 3.9.4"
 
 task test, "Run the unit tests":
   for f in ["test_urls", "test_opml", "test_requests",
-            "test_server", "test_datafolder", "test_misc", "test_embedded"]:
+            "test_server", "test_datafolder", "test_misc", "test_embedded", "test_darkmode"]:
     exec "nim c -r --hints:off tests/" & f & ".nim"
 
 task e2e, "Build build/bonbon.exe and run the end-to-end tests (needs a desktop and WebView2)":

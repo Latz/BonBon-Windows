@@ -1,0 +1,126 @@
+/*  dark.css -- the interface dark when Windows is, for the Windows version.
+
+	WebView2 tells the page prefers-color-scheme: dark when Windows is set to
+	dark apps, and the stylesheets turn the page dark then. The interface
+	around it, index.css, the original's, is light either way ("a dark
+	interface ... are other items", its last comment). This makes it dark too,
+	under the same media query, so it's always the page's twin. index.css stays
+	as it is: bridge.js adds this after everything else in the head, and each
+	rule here repeats the one it overrides, so it wins by coming later.
+
+	The colors are Chrome's dark theme, which is also DevTools': the tab strip
+	#202124, the toolbar and the current tab #35363a, menus #292a2d, lines
+	#5f6368, text #e8eaed, quieter text #9aa0a6, blue #8ab4f8.  */
+
+@media (prefers-color-scheme: dark) {
+
+	/* the tab strip */
+	.divTabBar {background-color: #202124;}
+	.divTab {color: #9aa0a6;}
+	.divTab:hover {background-color: #2d2e31;}
+	.divTab .iTabFavicon {color: #9aa0a6;}
+	.divTab.current {color: #e8eaed; background-color: #35363a;}
+	.spanTabClose {color: #9aa0a6;}
+	.spanTabClose:hover {color: #e8eaed;}
+	.buttonNewTab {color: #bdc1c6;}
+	.spanVersion {color: #9aa0a6;}
+	.divTab.dropTarget, .divBookmarksBar.dropTarget {box-shadow: inset 0 0 0 2px #8ab4f8;}
+	.divTabBar.dropTarget {box-shadow: inset 0 -3px 0 #8ab4f8;}
+
+	/* the address bar and its buttons */
+	.divChrome {background-color: #35363a; border-bottom: 1px solid #202124;}
+	.divNavButtons {color: #bdc1c6;}
+	.divNavButtons i.disabled {color: #5f6368;}
+	.divAddressField {background-color: #202124; border: 1px solid #5f6368;}
+	.divAddressField:focus-within {border-color: #8ab4f8;}
+	.spanAddressFavicon {color: #9aa0a6;}
+	.divAddressBar .inputAddress {color: #e8eaed;}
+	.buttonMore, .buttonSearch, .buttonSource, .buttonStylesheets {color: #bdc1c6;}
+	.buttonSearch.disabled, .buttonSource.disabled {color: #5f6368;}
+	.buttonSource.current {color: #3fb950;}
+
+	/* the bookmarks bar; its icons are drawn in its gray, see .aBookmarksBarItem img in index.css */
+	.divBookmarksBar {color: #bdc1c6;}
+	.aBookmarksBarItem:hover {background-color: #3c4043;}
+	.aBookmarksBarItem i {color: #bdc1c6;}
+	.aBookmarksBarItem img {filter: brightness(0) invert(78%);}
+
+	/* the menus and bars that open over the page */
+	.divMoreMenu, .divStylesheetsPanel, .divTypeahead, .divFindBar, .divSearchBar {
+		color: #e8eaed;
+		background-color: #292a2d;
+		border-color: #5f6368;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+		}
+	.divLinkStatus {color: #e8eaed; background-color: #35363a; border-color: #5f6368;}
+	.divMoreMenuItem:hover {background-color: #3c4043;}
+	.divMoreMenuSeparator {background-color: #5f6368;}
+	.divStylesheetsPanel .buttonStylesheet {color: #e8eaed; border-color: #5f6368;}
+	.divStylesheetsPanel .buttonStylesheet:hover {background-color: #3c4043;}
+	.divStylesheetsPanel .buttonStylesheet.current {color: #202124; background-color: #e8eaed; border-color: #e8eaed;}
+	.divTypeaheadRow:hover, .divTypeaheadRow.selected {background-color: #3c4043;}
+	.spanTypeaheadTitle {color: #e8eaed;}
+	.spanTypeaheadUrl {color: #9aa0a6;}
+	.spanFindCount {color: #9aa0a6;}
+	.divFindBar .inputFind, .divSearchBar .inputSearch, .divPageHeader .inputSearchForm {
+		color: #e8eaed;
+		background-color: #202124;
+		border-color: #5f6368;
+		}
+	.divFindBar .inputFind:focus, .divSearchBar .inputSearch:focus {border-color: #8ab4f8;}
+	.divPageHeader .buttonSearchForm {color: #e8eaed; background-color: #3c4043; border-color: #5f6368;}
+
+	/* in the page: the find marks keep Chrome's colors with dark words on them, the arrows and the calendar get the dark grays */
+	.divPage mark.markFind {color: #202124;}
+	.divPageArrows a {color: #9aa0a6;}
+	.divPageArrows a:hover {color: #e8eaed;}
+	.divPageArrows a.disabled {color: #5f6368;}
+	.divSidebar {color: #9aa0a6;}
+	.divCalendarHeader {color: #9aa0a6;}
+	.spanCalendarArrows i {color: #9aa0a6;}
+	.spanCalendarArrows i.disabled, .divCalendarWeekday, .divCalendarDay {color: #5f6368;}
+	.aCalendarDay {color: #bdc1c6; background-color: #2d2e31;}
+	.aCalendarDay:hover {color: #e8eaed; background-color: #3c4043;}
+	.aCalendarDay.current {color: #f28b82; background-color: #5c2b29;}
+
+	/* the dialogs and menus from Dave's includes, which are Bootstrap's */
+	.modal, .modal .divPrompt, .dropdown-menu {color: #e8eaed;}
+	.modal {background-color: #292a2d; border-color: #5f6368;}
+	.modal-header {border-bottom-color: #3c4043;}
+	.modal-footer {background-color: #202124; border-top-color: #3c4043; box-shadow: none;}
+	.modal .close {color: #e8eaed; text-shadow: none; opacity: 0.6;}
+	.modal input, .modal textarea, .modal select {color: #e8eaed; background-color: #202124; border-color: #5f6368;}
+	.modal .btn, .modal .btn:hover, .modal .btn:focus {
+		color: #e8eaed;
+		background-color: #3c4043;
+		background-image: none;
+		border-color: #5f6368;
+		text-shadow: none;
+		box-shadow: none;
+		}
+	.modal .btn:hover {background-color: #4a4c50;}
+	.modal .btn-primary, .modal .btn-primary:hover, .modal .btn-primary:focus {color: #202124; background-color: #8ab4f8; border-color: #8ab4f8;}
+	/* the outline in the bookmarks editor (Concord): black words and arrows, and a selection that's white on black */
+	.modal .concord .concord-node .concord-text {color: #e8eaed;}
+	.modal .concord .concord-node i.node-icon {color: #9aa0a6 !important;} /* the editor's own rule for the arrows outweighs a plain one */
+	.modal .concord .concord-node.selected > .concord-wrapper {background-color: #8ab4f8;}
+	.modal .concord .concord-node.selected > .concord-wrapper .concord-text {color: #202124;}
+	.modal .concord .concord-node.selected > .concord-wrapper i.node-icon {color: #202124 !important;}
+	.dropdown-menu {background-color: #292a2d; border-color: #5f6368;}
+	.dropdown-menu li > a {color: #e8eaed;}
+	.dropdown-menu .divider {background-color: #5f6368; border-bottom-color: #5f6368;}
+
+	/* the source, in highlight.js's github theme, which is made for white: GitHub's dark colors for it */
+	.hljs-doctag, .hljs-keyword, .hljs-meta .hljs-keyword, .hljs-template-tag, .hljs-template-variable, .hljs-type, .hljs-variable.language_ {color: #ff7b72;}
+	.hljs-title, .hljs-title.class_, .hljs-title.function_ {color: #d2a8ff;}
+	.hljs-attr, .hljs-attribute, .hljs-literal, .hljs-meta, .hljs-number, .hljs-operator, .hljs-selector-attr, .hljs-selector-class, .hljs-selector-id, .hljs-variable {color: #79c0ff;}
+	.hljs-meta .hljs-string, .hljs-regexp, .hljs-string {color: #a5d6ff;}
+	.hljs-built_in, .hljs-symbol {color: #ffa657;}
+	.hljs-code, .hljs-comment, .hljs-formula {color: #8b949e;}
+	.hljs-name, .hljs-quote, .hljs-selector-pseudo, .hljs-selector-tag {color: #7ee787;}
+	.hljs-subst {color: #c9d1d9;}
+	.hljs-section {color: #1f6feb;}
+	.hljs-bullet {color: #f2cc60;}
+	.hljs-addition {color: #aff5b4; background-color: #033a16;}
+	.hljs-deletion {color: #ffdcd7; background-color: #67060c;}
+	}

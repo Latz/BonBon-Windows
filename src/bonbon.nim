@@ -10,7 +10,7 @@
 
 import std/[os, strutils, json, tables, algorithm, sequtils, hashes]
 import winim/lean, winim/inc/[shellapi, winreg, objbase]
-import urls, requests, datafolder, workers, winutil, webview2, embedded
+import urls, requests, datafolder, workers, winutil, webview2, embedded, darkmode
 
 const
   classSource = "BonBonSource"
@@ -19,7 +19,8 @@ const
   urlShellPage = "http://" & hostApp & "/index.html" # http, not https, so pictures from http sites still load, as they do from Electron's file:// page
   bridgeScript = staticRead("bridge.js").multiReplace(
     ("/*MARKED*/", staticRead("../resources/app/node_modules/marked/marked.min.js")),
-    ("/*JSYAML*/", staticRead("../resources/app/node_modules/js-yaml/dist/js-yaml.min.js")))
+    ("/*JSYAML*/", staticRead("../resources/app/node_modules/js-yaml/dist/js-yaml.min.js")),
+    ("/*DARKCSS*/\"\"", escapeJson(staticRead("dark.css")))) # a JSON string is a JavaScript string
 
 type
   Cmd = enum
@@ -461,11 +462,12 @@ proc openSourceWindow(theUrl, theSource: string) =
   ## View Source in its own window: the text as it came, nothing else
   let title = "view-source:" & theUrl
   let htmltext = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>" & encodeHtml(title) &
-    "</title><style>body {margin: 0; padding: 20px 24px; font-family: Menlo, Monaco, monospace; font-size: 13px; line-height: 1.5; color: #222; background: #fff;} pre {margin: 0; white-space: pre-wrap; word-break: break-word;}</style></head><body><pre>" &
+    "</title><style>body {margin: 0; padding: 20px 24px; font-family: Menlo, Monaco, monospace; font-size: 13px; line-height: 1.5; color: #222; background: #fff;} pre {margin: 0; white-space: pre-wrap; word-break: break-word;} @media (prefers-color-scheme: dark) {body {color: #e8eaed; background: #202124;}}</style></head><body><pre>" &
     encodeHtml(theSource) & "</pre></body></html>"
   let hwnd = CreateWindowExW(0, classSource, title, WS_OVERLAPPEDWINDOW or WS_CLIPCHILDREN or WS_VISIBLE,
     CW_USEDEFAULT, CW_USEDEFAULT, px(800), px(700), 0, 0, hInst, nil)
   setMenuBar(hwnd)
+  darkmode.applyToWindow(hwnd)
   # a file, not NavigateToString, which shows nothing past 2 MB; Electron's data: URL has no such limit
   let path = sourceFile(hwnd)
   try:
@@ -478,7 +480,7 @@ proc openSourceWindow(theUrl, theSource: string) =
   createController(env, hwnd, proc (ctrl: pointer) =
     if ctrl == nil or IsWindow(hwnd) == 0: return
     sourceWindows[hwnd] = ctrl
-    setBackgroundWhite(ctrl)
+    setBackgroundColor(ctrl, webViewBackground())
     var rc: RECT
     discard GetClientRect(hwnd, addr rc)
     setBounds(ctrl, rc)
@@ -488,6 +490,7 @@ proc openSourceWindow(theUrl, theSource: string) =
     navigate(wv, "file:///" & path.replace('\\', '/')))
 
 proc sourceProc(hwnd: HWND, msg: UINT, wParam: WPARAM, lParam: LPARAM): LRESULT {.stdcall.} =
+  if handleMenuBar(hwnd, msg, wParam, lParam, result): return
   case msg
   of WM_SIZE:
     if hwnd in sourceWindows:
@@ -725,11 +728,20 @@ proc fitPage() =
   discard GetClientRect(hwndMain, addr rc)
   setBounds(ctrlMain, rc)
 
+proc applyTheme() =
+  ## dark or light, as Windows is now, in every window; the pages follow by themselves
+  for h in @[hwndMain] & toSeq(sourceWindows.keys): darkmode.applyToWindow(h)
+  for ctrl in @[ctrlMain] & toSeq(sourceWindows.values):
+    if ctrl != nil: setBackgroundColor(ctrl, webViewBackground())
+
 proc mainProc(hwnd: HWND, msg: UINT, wParam: WPARAM, lParam: LPARAM): LRESULT {.stdcall.} =
+  if handleMenuBar(hwnd, msg, wParam, lParam, result): return
   case msg
   of WM_SIZE:
     fitPage()
     return 0
+  of WM_SETTINGCHANGE: # among them the switch between light and dark apps
+    if darkmode.update(): applyTheme()
   of WM_MOVE:
     if ctrlMain != nil: notifyParentWindowPositionChanged(ctrlMain)
   of WM_SETFOCUS:
@@ -774,7 +786,7 @@ proc startPage() =
     createController(env, hwndMain, proc (ctrl: pointer) =
       if ctrl == nil: return
       ctrlMain = ctrl
-      setBackgroundWhite(ctrl)
+      setBackgroundColor(ctrl, webViewBackground())
       wvMain = getWebView(ctrl)
       configure(wvMain)
       setVirtualHostNameToFolderMapping(wvMain, hostApp, resourcesFolder() / "app")
@@ -815,6 +827,7 @@ proc createWindow() =
   hwndMain = CreateWindowExW(0, classMain, "Markdown Browser", WS_OVERLAPPEDWINDOW or WS_CLIPCHILDREN,
     x, y, w, h, 0, 0, hInst, nil)
   buildMenu()
+  darkmode.applyToWindow(hwndMain)
   discard ShowWindow(hwndMain, SW_SHOWNORMAL)
 
 proc main() =
@@ -833,6 +846,7 @@ proc main() =
       return
   discard CoInitializeEx(nil, COINIT_APARTMENTTHREADED)
   initDpi()
+  discard darkmode.update()
   config = readConfig()
   reqOptions.maxRedirects = cfgInt(config, "maxRedirects", 10)
   reqOptions.userAgent = "Markdown Browser/" & appVersion

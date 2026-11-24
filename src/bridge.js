@@ -25,6 +25,18 @@
 		Here Ctrl counts as Cmd for a mouse event, the way Windows browsers do
 		it, so index.js stays as it is.  */
 
+	/*  DARK MODE. dark.css, which bonbon.exe puts where the marker is, makes
+		the interface dark when the page is (see its comment). It goes after
+		everything else in the head, so its rules win over index.css's.  */
+
+	const darkCss = /*DARKCSS*/"";
+	document.addEventListener ("DOMContentLoaded", function () {
+		const style = document.createElement ("style");
+		style.id = "styleBonBonDark";
+		style.textContent = darkCss;
+		document.head.appendChild (style);
+		});
+
 	const metaKeyOfMouse = Object.getOwnPropertyDescriptor (MouseEvent.prototype, "metaKey");
 	Object.defineProperty (MouseEvent.prototype, "metaKey", {
 		configurable: true,
