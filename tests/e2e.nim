@@ -38,6 +38,8 @@ proc serve() {.thread.} =
       of "/big.md": await reply(bigPage, "text/markdown; charset=utf-8")
       of "/data.json": await reply("{\"a\":1,\"b\":[true,null]}", "application/json")
       of "/favicon.ico": await reply(pngBytes, "image/png")
+      of "/attachment.bin": await req.respond(Http200, "some bytes", newHttpHeaders({
+        "Content-Type": "application/octet-stream", "Content-Disposition": "attachment; filename=\"bonbon-e2e.bin\""}))
       else: await req.respond(Http404, "")
     while true:
       if server.shouldAcceptRequest():
@@ -368,6 +370,25 @@ suite "the menus":
     waitUntil("the History menu", proc (): bool = (GetMenuState(bar, UINT ix, MF_BYPOSITION) and MF_HILITE) != 0)
     pressKeys([VK_ESCAPE])
     pressKeys([VK_ESCAPE])
+
+suite "downloads":
+  test "a download asks where to save it, in Windows' Save As dialog, and Cancel saves nothing":
+    let downloaded = getHomeDir() / "Downloads" / "bonbon-e2e.bin"
+    removeFile(downloaded)
+    # from a frame nobody sees, so the shell page stays as it is
+    discard js("(() => { const f = document.createElement ('iframe'); f.style.display = 'none'; f.src = '" & base &
+      "/attachment.bin'; document.body.appendChild (f); setTimeout (() => f.remove (), 5000); return 1; })()")
+    var dialog: HWND
+    waitUntil("the Save As dialog", proc (): bool =
+      let ws = mainWindows(app.processID, "#32770")
+      if ws.len > 0: dialog = ws[0][0]
+      dialog != 0)
+    check IsWindowEnabled(app.mainWindow) == 0 # modal
+    discard PostMessageW(dialog, WM_COMMAND, IDCANCEL, 0)
+    waitUntil("the dialog to close", proc (): bool = IsWindow(dialog) == 0)
+    sleep 1000
+    check not fileExists(downloaded)
+    check IsWindowEnabled(app.mainWindow) != 0
 
 suite "tabs and the one instance":
   test "the tabs are saved":

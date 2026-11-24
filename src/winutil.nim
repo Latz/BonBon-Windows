@@ -1,7 +1,7 @@
 ## winutil.nim -- the few Win32 helpers BonBon needs.
 
-import std/[strutils, unicode]
-import winim/lean, winim/inc/shellapi
+import std/[strutils, unicode, os]
+import winim/lean, winim/inc/[shellapi, commdlg]
 
 var dpi* = 96
 
@@ -24,6 +24,20 @@ proc setClipboardText*(owner: HWND, s: string) =
     discard GlobalUnlock(h)
     discard SetClipboardData(CF_UNICODETEXT, h)
   discard CloseClipboard()
+
+proc askSavePath*(owner: HWND, suggested: string): string =
+  ## Windows' Save As dialog, starting at the suggested folder and name; "" when it was canceled
+  var buf = newWString(32768)
+  var name = +$suggested.extractFilename
+  if name.len > 0: copyMem(&buf, &name, name.len * 2)
+  var dir = +$suggested.parentDir
+  let ext = suggested.splitFile.ext
+  var defExt = +$(if ext.len > 1: ext[1 .. ^1] else: "")
+  var ofn = OPENFILENAMEW(lStructSize: DWORD sizeof(OPENFILENAMEW), hwndOwner: owner,
+    lpstrFilter: "All files\0*.*\0\0", lpstrFile: &buf, nMaxFile: DWORD buf.len,
+    lpstrInitialDir: &dir, lpstrDefExt: if defExt.len > 0: &defExt else: nil,
+    Flags: OFN_OVERWRITEPROMPT or OFN_PATHMUSTEXIST or OFN_NOCHANGEDIR or OFN_EXPLORER)
+  if GetSaveFileNameW(addr ofn) != 0: ($buf).split('\0')[0] else: ""
 
 proc openShell*(target: string) =
   ## a web address in the reader's default browser, a folder or file in its app

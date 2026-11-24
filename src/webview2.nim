@@ -193,6 +193,30 @@ proc addScriptToExecuteOnDocumentCreated*(wv: pointer, js: string) = discard cal
 proc executeScript*(wv: pointer, js: string) = discard callPP(wv, 29, &(+$js), nil)
 proc postWebMessageAsJson*(wv: pointer, json: string) = discard callP(wv, 32, &(+$json))
 proc openDevToolsWindow*(wv: pointer) = discard call0(wv, 51)
+
+# ---------------------------------------------------------------- downloads
+
+proc onDownloadStarting*(wv: pointer, fn: proc (args: pointer)) =
+  ## a download the page starts; fn gets its ICoreWebView2DownloadStartingEventArgs
+  let wv4 = queryInterface(wv, DEFINE_GUID("20d02d59-6df2-42dc-bd06-f98a694b1302")) # ICoreWebView2_4
+  if wv4 == nil: return
+  addEvent(wv4, 75, proc (a, args: pointer): HRESULT = # add_DownloadStarting
+    fn(args)
+    S_OK)
+
+proc addRef*(obj: pointer) = discard call0(obj, 1)
+proc release*(obj: pointer) = discard call0(obj, 2)
+proc downloadPath*(args: pointer): string =
+  ## where WebView2 would put the file: the Downloads folder and the file's name
+  var p: LPWSTR
+  if callP(args, 6, addr p) == S_OK: result = takeString(p) # get_ResultFilePath
+proc setDownloadPath*(args: pointer, path: string) = discard callP(args, 7, &(+$path)) # put_ResultFilePath
+proc setDownloadCancel*(args: pointer) = discard callB(args, 5, true)                  # put_Cancel
+proc setDownloadHandled*(args: pointer) = discard callB(args, 9, true)                 # put_Handled: no download bar
+proc getDeferral*(args: pointer): pointer = discard callP(args, 10, addr result)       # GetDeferral
+proc completeDeferral*(deferral: pointer) =
+  discard call0(deferral, 3) # Complete
+  release(deferral)
 proc callDevToolsProtocolMethod*(wv: pointer, meth, paramsJson: string, done: proc (json: string) = nil) =
   ## a DevTools Protocol call on the page; done gets its answer, JSON, "" when it failed
   let h = handler(proc (errorCode, resultJson: pointer): HRESULT =

@@ -720,6 +720,29 @@ proc argUrls(): seq[string] =
 
 const fnamePrefs = "windowsPrefs.json" ## {"window": {x, y, w, h, maximized}}, and whatever else is in it, kept
 
+#[ DOWNLOADS, Electron's way: the Save As dialog asks where, and there's no
+   download bar. WebView2 says a download is starting; it waits (a deferral)
+   while the dialog is shown, which is done from a message of its own rather
+   than inside WebView2's call. ]#
+
+const WM_DOWNLOAD = WM_APP + 2
+var downloadsWaiting: seq[(pointer, pointer)] ## (the event's arguments, its deferral)
+
+proc downloadStarting(args: pointer) =
+  addRef(args)
+  downloadsWaiting.add (args, getDeferral(args))
+  discard PostMessageW(hwndMain, WM_DOWNLOAD, 0, 0)
+
+proc askWhereToSave() =
+  while downloadsWaiting.len > 0:
+    let (args, deferral) = downloadsWaiting[0]
+    downloadsWaiting.delete(0)
+    let path = askSavePath(hwndMain, downloadPath(args))
+    if path.len > 0: setDownloadPath(args, path) else: setDownloadCancel(args)
+    setDownloadHandled(args)
+    completeDeferral(deferral)
+    release(args)
+
 proc saveWindowPlace() =
   ## where the window is, for the next start; its size and place when it isn't maximized, and whether it is.
   ## The Electron original doesn't remember; a Windows app is expected to
@@ -769,6 +792,9 @@ proc mainProc(hwnd: HWND, msg: UINT, wParam: WPARAM, lParam: LPARAM): LRESULT {.
   of WM_JOBDONE:
     for r in drainResults(): jobDone(r)
     return 0
+  of WM_DOWNLOAD:
+    askWhereToSave()
+    return 0
   of WM_TIMER:
     if wParam == timerInspect:
       inspectTick()
@@ -812,6 +838,7 @@ proc startPage() =
       onWebMessageReceived(wvMain, pageCall)
       onDocumentTitleChanged(wvMain, proc () = discard SetWindowTextW(hwndMain, documentTitle(wvMain)))
       onAcceleratorKeyPressed(ctrl, pageKeys(hwndMain))
+      onDownloadStarting(wvMain, downloadStarting)
       fitPage()
       moveFocus(ctrl)
       navigate(wvMain, urlShellPage)))

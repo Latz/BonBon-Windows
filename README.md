@@ -71,7 +71,6 @@ Differences that remain:
 
 - **Page handlers.** They run in an invisible frame that is sealed off by `sandbox` and a Content Security Policy. The original runs them in a hidden window with a session of its own. The original's third safeguard, cancelling every request from that session, is missing here.
 - **Addresses.** The shell page is served from `http://bonbon.example/`, and the data folder's stylesheets from `http://stylesheets.bonbon.example/`. Because of that, localStorage starts fresh, so the chosen stylesheet and the sidebar state are not carried over from the Electron version.
-- **Downloads.** WebView2 saves downloads to the Downloads folder without asking and shows its own download bar. Electron asks with a save dialog.
 - **Compression.** WinHTTP unpacks gzip and deflate but not Brotli. A page a server sends with `Content-Encoding: br` without being asked arrives unreadable.
 - **Closing the last tab.** The page's `window.close ()` is passed to the app through the bridge, because Chromium won't let a page close its window.
 
