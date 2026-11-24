@@ -8,7 +8,7 @@
 ## it needs a desktop, the WebView2 runtime and build\bonbon.exe with
 ## WebView2Loader.dll beside it.
 
-import std/[unittest, asynchttpserver, asyncdispatch, strutils, json, os, osproc, strtabs, times]
+import std/[unittest, asynchttpserver, asyncdispatch, strutils, json, os, osproc, strtabs, times, sequtils]
 import winim/lean, winim/inc/winhttp
 import requests
 
@@ -16,6 +16,7 @@ const
   exe = currentSourcePath.parentDir.parentDir / "build" / "bonbon.exe"
   homePage = "---\ntitle: Home page\n---\n# Welcome\n\nSome *text* and <b>raw html</b>.\n\n[Second](second.md)\n"
   secondPage = "---\ntitle: Second page\n---\n# Second\n\nThe second page.\n"
+  bigPage = "---\ntitle: Big page\n---\n# Big\n\n" & "word ".repeat(600_000) & "\n" # 3 MB, past NavigateToString's 2
   pngBytes = "\x89PNG\r\n\x1a\n\0\0\0\rIHDR"
 
 # ---------------------------------------------------------------- the pages
@@ -34,6 +35,7 @@ proc serve() {.thread.} =
       case req.url.path
       of "/index.md": await reply(homePage, "text/markdown; charset=utf-8")
       of "/second.md": await reply(secondPage, "text/markdown; charset=utf-8")
+      of "/big.md": await reply(bigPage, "text/markdown; charset=utf-8")
       of "/data.json": await reply("{\"a\":1,\"b\":[true,null]}", "application/json")
       of "/favicon.ico": await reply(pngBytes, "image/png")
       else: await req.respond(Http404, "")
@@ -113,6 +115,14 @@ proc menuLabels(p: Process, title: string): seq[string] =
         var t = newWString(256)
         t.setLen int(GetMenuStringW(sub, UINT j, &t, 256, MF_BYPOSITION))
         result.add ($t).split('\t')[0]
+
+proc menuLabelsOf(hwnd: HWND): seq[string] =
+  ## the titles in this window's menu bar
+  let bar = GetMenu(hwnd)
+  for i in 0 ..< GetMenuItemCount(bar):
+    var w = newWString(256)
+    w.setLen int(GetMenuStringW(bar, UINT i, &w, 256, MF_BYPOSITION))
+    result.add $w
 
 proc choose(p: Process, label: string) =
   ## a menu item, chosen
@@ -264,8 +274,23 @@ suite "the menus":
     waitUntil("the source window", proc (): bool = mainWindows(app.processID, "BonBonSource").len > 0)
     let (h, title) = mainWindows(app.processID, "BonBonSource")[0]
     check title == "view-source:" & base & "/second.md"
+    check "History" in menuLabelsOf(h).mapIt(it.replace("&", "")) # the menu bar in every window, as in Electron
     discard PostMessageW(h, WM_CLOSE, 0, 0)
     waitUntil("the source window to close", proc (): bool = mainWindows(app.processID, "BonBonSource").len == 0)
+  test "View Source shows a source past 2 MB":
+    discard js("loadUrl (currentTab (), '" & base & "/big.md')")
+    waitForJs("currentTab ().title === 'Big page'", 30.0)
+    app.choose("View Source")
+    waitUntil("the source window", proc (): bool = mainWindows(app.processID, "BonBonSource").len > 0)
+    # its page's title shows up in the debugging port's list only once the page has loaded
+    waitUntil("the big source to load", proc (): bool =
+      let r = httpGet("http://127.0.0.1:" & $debugPort & "/json", "*/*")
+      r.err.len == 0 and r.status == 200 and
+        parseJson(r.body).getElems.anyIt(it{"title"}.getStr == "view-source:" & base & "/big.md"), 30.0)
+    discard PostMessageW(mainWindows(app.processID, "BonBonSource")[0][0], WM_CLOSE, 0, 0)
+    waitUntil("the source window to close", proc (): bool = mainWindows(app.processID, "BonBonSource").len == 0)
+    discard js("loadUrl (currentTab (), '" & base & "/second.md')")
+    waitForJs("currentTab ().title === 'Second page'")
   test "Find opens the page's find bar":
     app.choose("Find...")
     waitForJs("getComputedStyle (document.querySelector ('.divFindBar')).display !== 'none'")

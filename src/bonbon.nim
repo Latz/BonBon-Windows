@@ -163,8 +163,8 @@ proc addBookmarksMenuItems(m: HMENU, theSubs: JsonNode) =
     elif theNode{"url"} != nil:
       addPageItem(m, getMenuItemLabel(theText), "openBookmark", theNode{"url"}.getStr)
 
-proc buildMenu() =
-  menuItemCommands.setLen 0
+proc menuBar(): HMENU =
+  ## one copy of the menu bar; a window can't share its menu with another
   let appMenu = CreatePopupMenu()
   addItem(appMenu, "About", ord cmdAbout)
   addSeparator(appMenu)
@@ -227,9 +227,18 @@ proc buildMenu() =
   addSubmenu(bar, historyMenu, "Hi&story")
   addSubmenu(bar, bookmarksMenu, "&Bookmarks")
   addSubmenu(bar, windowMenu, "&Window")
-  let old = GetMenu(hwndMain)
-  discard SetMenu(hwndMain, bar)
+  bar
+
+proc setMenuBar(hwnd: HWND) =
+  let old = GetMenu(hwnd)
+  discard SetMenu(hwnd, menuBar())
   if old != 0: discard DestroyMenu(old)
+
+proc buildMenu() =
+  ## the menu bar in every window, as Electron's application menu is
+  menuItemCommands.setLen 0
+  setMenuBar(hwndMain)
+  for h in sourceWindows.keys: setMenuBar(h)
 
 proc buildAccelerators() =
   ## the same keys, for when the window itself has the focus and not the page
@@ -244,35 +253,36 @@ proc buildAccelerators() =
 
 proc isDown(vk: int): bool = GetAsyncKeyState(int32 vk) < 0
 
-proc pageKey(kind: int32, vk: UINT, lParam: int32): bool =
-  ## a key pressed in the page: the menu's keys are the menu's, and a press of
-  ## Alt alone opens the menu bar
-  if kind == systemKeyDown and int(vk) == VK_MENU:
-    flAltAlone = true
-    return false
-  if kind == 3 and int(vk) == VK_MENU: # SYSTEM_KEY_UP
-    if flAltAlone:
-      flAltAlone = false
-      discard PostMessageW(hwndMain, WM_SYSCOMMAND, SC_KEYMENU, 0)
+proc pageKeys(hwnd: HWND): proc (kind: int32, vk: UINT, lParam: int32): bool =
+  ## the keys pressed in the page of this window: the menu's keys are the
+  ## menu's, and a press of Alt alone opens the menu bar
+  result = proc (kind: int32, vk: UINT, lParam: int32): bool =
+    if kind == systemKeyDown and int(vk) == VK_MENU:
+      flAltAlone = true
+      return false
+    if kind == 3 and int(vk) == VK_MENU: # SYSTEM_KEY_UP
+      if flAltAlone:
+        flAltAlone = false
+        discard PostMessageW(hwnd, WM_SYSCOMMAND, SC_KEYMENU, 0)
+        return true
+      return false
+    if kind in [keyDown, systemKeyDown]: flAltAlone = false
+    if kind notin [keyDown, systemKeyDown]: return false
+    let ctrl = isDown(VK_CONTROL)
+    let shift = isDown(VK_SHIFT)
+    let alt = isDown(VK_MENU)
+    for k in keys:
+      if k.vk == int(vk) and k.ctrl == ctrl and k.shift == shift and k.alt == alt:
+        discard PostMessageW(hwnd, WM_COMMAND, WPARAM ord(k.cmd), 0)
+        return true
+    let c = chr(int(vk) and 0xFF) # virtual-key codes are below 256
+    if kind == systemKeyDown and c in {'A'..'Z', '0'..'9'}:
+      # Alt+letter (a system key: Alt without Ctrl): the menu bar's, as if the window had the focus and not the page
+      discard PostMessageW(hwnd, WM_SYSCOMMAND, SC_KEYMENU, LPARAM ord(toLowerAscii(c)))
       return true
-    return false
-  if kind in [keyDown, systemKeyDown]: flAltAlone = false
-  if kind notin [keyDown, systemKeyDown]: return false
-  let ctrl = isDown(VK_CONTROL)
-  let shift = isDown(VK_SHIFT)
-  let alt = isDown(VK_MENU)
-  for k in keys:
-    if k.vk == int(vk) and k.ctrl == ctrl and k.shift == shift and k.alt == alt:
-      discard PostMessageW(hwndMain, WM_COMMAND, WPARAM ord(k.cmd), 0)
-      return true
-  let c = chr(int(vk) and 0xFF) # virtual-key codes are below 256
-  if kind == systemKeyDown and c in {'A'..'Z', '0'..'9'}:
-    # Alt+letter (a system key: Alt without Ctrl): the menu bar's, as if the window had the focus and not the page
-    discard PostMessageW(hwndMain, WM_SYSCOMMAND, SC_KEYMENU, LPARAM ord(toLowerAscii(c)))
-    return true
-  false
+    false
 
-proc sendKeys(vks: openArray[int]) =
+proc sendKeys(vks: openArray[int], ctrl = ctrlMain) =
   ## Edit's commands from the menu: the page gets the keys, as if they were typed
   var inputs: seq[INPUT]
   for vk in vks:
@@ -284,13 +294,15 @@ proc sendKeys(vks: openArray[int]) =
     i.ki.wVk = WORD vks[ix]
     i.ki.dwFlags = KEYEVENTF_KEYUP
     inputs.add i
-  if ctrlMain != nil: moveFocus(ctrlMain)
+  if ctrl != nil: moveFocus(ctrl)
   discard SendInput(UINT inputs.len, addr inputs[0], int32 sizeof(INPUT))
 
-proc toggleZoom() =
-  discard ShowWindow(hwndMain, if IsZoomed(hwndMain) != 0: SW_RESTORE else: SW_MAXIMIZE)
+proc toggleZoom(hwnd: HWND) =
+  discard ShowWindow(hwnd, if IsZoomed(hwnd) != 0: SW_RESTORE else: SW_MAXIMIZE)
 
-proc doCommand(id: int) =
+proc doCommand(id: int, hwnd = hwndMain, ctrl = ctrlMain) =
+  ## a menu command from this window's menu bar: Edit's and Window's act on
+  ## that window, the rest on the main window's page, as Electron's do
   if id >= cmdMenuItemBase:
     let ix = id - cmdMenuItemBase
     if ix < menuItemCommands.len: sendCommand(menuItemCommands[ix][0], menuItemCommands[ix][1])
@@ -303,14 +315,14 @@ proc doCommand(id: int) =
   of cmdNewTab: sendCommand("newTab")
   of cmdCloseTab: sendCommand("closeTab")
   of cmdOpenDataFolder: openShell(dataFolder())
-  of cmdUndo: sendKeys([VK_CONTROL, ord('Z')])
-  of cmdRedo: sendKeys([VK_CONTROL, ord('Y')])
-  of cmdCut: sendKeys([VK_CONTROL, ord('X')])
-  of cmdCopy: sendKeys([VK_CONTROL, ord('C')])
-  of cmdPaste: sendKeys([VK_CONTROL, ord('V')])
-  of cmdPasteAndMatchStyle: sendKeys([VK_CONTROL, VK_SHIFT, ord('V')])
-  of cmdDelete: sendKeys([VK_DELETE])
-  of cmdSelectAll: sendKeys([VK_CONTROL, ord('A')])
+  of cmdUndo: sendKeys([VK_CONTROL, ord('Z')], ctrl)
+  of cmdRedo: sendKeys([VK_CONTROL, ord('Y')], ctrl)
+  of cmdCut: sendKeys([VK_CONTROL, ord('X')], ctrl)
+  of cmdCopy: sendKeys([VK_CONTROL, ord('C')], ctrl)
+  of cmdPaste: sendKeys([VK_CONTROL, ord('V')], ctrl)
+  of cmdPasteAndMatchStyle: sendKeys([VK_CONTROL, VK_SHIFT, ord('V')], ctrl)
+  of cmdDelete: sendKeys([VK_DELETE], ctrl)
+  of cmdSelectAll: sendKeys([VK_CONTROL, ord('A')], ctrl)
   of cmdFind: sendCommand("find")
   of cmdFindNext: sendCommand("findNext")
   of cmdFindPrevious: sendCommand("findPrevious")
@@ -322,9 +334,61 @@ proc doCommand(id: int) =
   of cmdForward: sendCommand("goForward")
   of cmdAddBookmark: sendCommand("addBookmark")
   of cmdEditBookmarks: sendCommand("editBookmarks")
-  of cmdMinimize: discard ShowWindow(hwndMain, SW_MINIMIZE)
-  of cmdZoom: toggleZoom()
+  of cmdMinimize: discard ShowWindow(hwnd, SW_MINIMIZE)
+  of cmdZoom: toggleZoom(hwnd)
   of cmdNone: discard
+
+# ---------------------------------------------------------------- Inspect
+
+const timerInspect = 0xB1
+
+var
+  inspectX, inspectY = 0.0 ## the right-click, in the page
+  inspectTicks = 0         ## tenths of a second since Inspect
+  inspectSeenAt = -1       ## the tick the DevTools window was there
+  flInspectWasOpen = false
+
+proc devToolsWindow(): HWND =
+  ## the shell page's DevTools window; WebView2 titles it with the page's address
+  FindWindowW(nil, "DevTools - " & urlShellPage["http://".len .. ^1])
+
+proc clickInPage(x, y: float) =
+  ## a click the page gets through the DevTools Protocol: no real mouse, so no
+  ## window in front of the spot can take it
+  for t in ["mouseMoved", "mousePressed", "mouseReleased"]:
+    callDevToolsProtocolMethod(wvMain, "Input.dispatchMouseEvent",
+      $(%*{"type": t, "x": x, "y": y, "button": "left", "clickCount": 1}))
+
+proc inspectAt(x, y: float) =
+  ## Electron's inspectElement: DevTools on the element under the pointer.
+  ## WebView2 has no call for it, so it's done the way a person does it:
+  ## DevTools' element picker (Ctrl+Shift+C), then a click on the spot
+  if wvMain == nil: return
+  flInspectWasOpen = devToolsWindow() != 0
+  openDevToolsWindow(wvMain)
+  inspectX = x
+  inspectY = y
+  inspectTicks = 0
+  inspectSeenAt = -1
+  discard SetTimer(hwndMain, timerInspect, 100, nil)
+
+proc inspectTick() =
+  inc inspectTicks
+  let dt = devToolsWindow()
+  if dt != 0 and inspectSeenAt < 0: inspectSeenAt = inspectTicks
+  if inspectTicks > 100 or (dt == 0 and inspectSeenAt >= 0): # 10 s without it, or it was closed
+    discard KillTimer(hwndMain, timerInspect)
+    return
+  if dt == 0: return
+  # shortcut: a fixed wait for DevTools to load; on a machine slower than that the picker isn't on yet and the click goes to the page; wait for a sign of DevTools being ready if that happens
+  let wait = if flInspectWasOpen: 3 else: 20
+  let step = inspectTicks - inspectSeenAt
+  if step == wait:
+    discard SetForegroundWindow(dt)
+    sendKeys([VK_CONTROL, VK_SHIFT, ord('C')], nil)
+  elif step == wait + 3:
+    discard KillTimer(hwndMain, timerInspect)
+    clickInPage(inspectX, inspectY)
 
 proc showContextMenu(theParams: JsonNode) =
   ## the right-click menu, Chrome's: on a link, open it in a new tab or copy
@@ -345,12 +409,16 @@ proc showContextMenu(theParams: JsonNode) =
   of 1: sendCommand("openUrlInNewTab", linkUrl)
   of 2: setClipboardText(hwndMain, linkUrl)
   of 3: sendCommand("viewSource")
-  of 4: (if wvMain != nil: openDevToolsWindow(wvMain)) # WebView2 can't open it on an element
+  of 4: inspectAt(theParams{"x"}.getFloat, theParams{"y"}.getFloat)
   else: discard
 
 # ---------------------------------------------------------------- View Source
 
 proc encodeHtml(s: string): string = s.multiReplace(("&", "&amp;"), ("<", "&lt;"), (">", "&gt;"))
+
+proc sourceFile(hwnd: HWND): string =
+  ## a View Source window's page, in the BonBon folder in the system's temporary folder
+  getTempDir() / "BonBon" / ("source-" & $cast[int](hwnd) & ".html")
 
 proc openSourceWindow(theUrl, theSource: string) =
   ## View Source in its own window: the text as it came, nothing else
@@ -360,6 +428,16 @@ proc openSourceWindow(theUrl, theSource: string) =
     encodeHtml(theSource) & "</pre></body></html>"
   let hwnd = CreateWindowExW(0, classSource, title, WS_OVERLAPPEDWINDOW or WS_CLIPCHILDREN or WS_VISIBLE,
     CW_USEDEFAULT, CW_USEDEFAULT, px(800), px(700), 0, 0, hInst, nil)
+  setMenuBar(hwnd)
+  # a file, not NavigateToString, which shows nothing past 2 MB; Electron's data: URL has no such limit
+  let path = sourceFile(hwnd)
+  try:
+    createDir(path.parentDir)
+    writeFile(path, htmltext)
+  except CatchableError as e:
+    discard DestroyWindow(hwnd)
+    discard MessageBoxW(hwndMain, "Can't show the source because it couldn't be saved: " & e.msg, appName, MB_OK or MB_ICONERROR)
+    return
   createController(env, hwnd, proc (ctrl: pointer) =
     if ctrl == nil or IsWindow(hwnd) == 0: return
     sourceWindows[hwnd] = ctrl
@@ -367,8 +445,8 @@ proc openSourceWindow(theUrl, theSource: string) =
     var rc: RECT
     discard GetClientRect(hwnd, addr rc)
     setBounds(ctrl, rc)
-    let wv = getWebView(ctrl)
-    navigateToString(wv, htmltext)) # shortcut: NavigateToString takes up to 2 MB, a bigger source shows nothing; write it to a file when that matters
+    onAcceleratorKeyPressed(ctrl, pageKeys(hwnd))
+    navigate(getWebView(ctrl), "file:///" & path.replace('\\', '/')))
 
 proc sourceProc(hwnd: HWND, msg: UINT, wParam: WPARAM, lParam: LPARAM): LRESULT {.stdcall.} =
   case msg
@@ -378,10 +456,17 @@ proc sourceProc(hwnd: HWND, msg: UINT, wParam: WPARAM, lParam: LPARAM): LRESULT 
       discard GetClientRect(hwnd, addr rc)
       setBounds(sourceWindows[hwnd], rc)
     return 0
+  of WM_SETFOCUS:
+    if hwnd in sourceWindows: moveFocus(sourceWindows[hwnd])
+    return 0
+  of WM_COMMAND:
+    doCommand(int(LOWORD(wParam)), hwnd, sourceWindows.getOrDefault(hwnd))
+    return 0
   of WM_DESTROY:
     if hwnd in sourceWindows:
       closeController(sourceWindows[hwnd])
       sourceWindows.del hwnd
+    try: removeFile(sourceFile(hwnd)) except CatchableError: discard
     return 0
   else: discard
   DefWindowProcW(hwnd, msg, wParam, lParam)
@@ -617,6 +702,10 @@ proc mainProc(hwnd: HWND, msg: UINT, wParam: WPARAM, lParam: LPARAM): LRESULT {.
   of WM_JOBDONE:
     for r in drainResults(): jobDone(r)
     return 0
+  of WM_TIMER:
+    if wParam == timerInspect:
+      inspectTick()
+      return 0
   of WM_COPYDATA: # a bon:// link from a second launch
     let cds = cast[ptr COPYDATASTRUCT](lParam)
     if cds.dwData == 0xB0B0 and cds.cbData > 0:
@@ -652,7 +741,7 @@ proc startPage() =
       addScriptToExecuteOnDocumentCreated(wvMain, bridgeScript)
       onWebMessageReceived(wvMain, pageCall)
       onDocumentTitleChanged(wvMain, proc () = discard SetWindowTextW(hwndMain, documentTitle(wvMain)))
-      onAcceleratorKeyPressed(ctrl, pageKey)
+      onAcceleratorKeyPressed(ctrl, pageKeys(hwndMain))
       fitPage()
       moveFocus(ctrl)
       navigate(wvMain, urlShellPage)))
