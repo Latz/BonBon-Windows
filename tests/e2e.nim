@@ -107,7 +107,7 @@ proc menuLabels(p: Process, title: string): seq[string] =
   for i in 0 ..< GetMenuItemCount(bar):
     var w = newWString(256)
     w.setLen int(GetMenuStringW(bar, UINT i, &w, 256, MF_BYPOSITION))
-    if $w == title:
+    if ($w).replace("&", "") == title: # the & marks the menu's Alt+letter
       let sub = GetSubMenu(bar, int32 i)
       for j in 0 ..< GetMenuItemCount(sub):
         var t = newWString(256)
@@ -120,6 +120,19 @@ proc choose(p: Process, label: string) =
   let id = menuItemId(GetMenu(hwnd), label)
   doAssert id != -1, "no menu item " & label
   discard PostMessageW(hwnd, WM_COMMAND, WPARAM id, 0)
+
+proc pressKeys(vks: openArray[int]) =
+  ## real keystrokes, to whatever has the focus: down in order, up in reverse
+  var inputs: seq[INPUT]
+  for vk in vks:
+    inputs.add INPUT(`type`: INPUT_KEYBOARD)
+    inputs[^1].ki.wVk = WORD vk
+  for ix in countdown(vks.high, 0):
+    inputs.add INPUT(`type`: INPUT_KEYBOARD)
+    inputs[^1].ki.wVk = WORD vks[ix]
+    inputs[^1].ki.dwFlags = KEYEVENTF_KEYUP
+  discard SendInput(UINT inputs.len, addr inputs[0], int32 sizeof(INPUT))
+  sleep 200
 
 proc waitUntil(what: string, cond: proc (): bool, timeout = 15.0) =
   let t0 = epochTime()
@@ -257,6 +270,33 @@ suite "the menus":
     app.choose("Find...")
     waitForJs("getComputedStyle (document.querySelector ('.divFindBar')).display !== 'none'")
     discard js("document.dispatchEvent (new KeyboardEvent ('keydown', {key: 'Escape'}))")
+  test "Alt+S in the page opens the History menu":
+    let hwnd = app.mainWindow
+    # a real click into the page, at its blank bottom-left: a test in the background can't SetForegroundWindow
+    discard SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE or SWP_NOSIZE)
+    var rc: RECT
+    discard GetClientRect(hwnd, addr rc)
+    var pt = POINT(x: rc.left + 10, y: rc.bottom - 10)
+    discard ClientToScreen(hwnd, addr pt)
+    discard SetCursorPos(pt.x, pt.y)
+    var click: seq[INPUT]
+    for flags in [MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP]:
+      click.add INPUT(`type`: INPUT_MOUSE)
+      click[^1].mi.dwFlags = DWORD flags
+    discard SendInput(2, addr click[0], int32 sizeof(INPUT))
+    discard SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE or SWP_NOSIZE)
+    sleep 300
+    pressKeys([VK_MENU, ord('S')])
+    let bar = GetMenu(hwnd)
+    var ix = -1
+    for i in 0 ..< GetMenuItemCount(bar):
+      var w = newWString(256)
+      w.setLen int(GetMenuStringW(bar, UINT i, &w, 256, MF_BYPOSITION))
+      if ($w).replace("&", "") == "History": ix = i
+    check ix != -1
+    waitUntil("the History menu", proc (): bool = (GetMenuState(bar, UINT ix, MF_BYPOSITION) and MF_HILITE) != 0)
+    pressKeys([VK_ESCAPE])
+    pressKeys([VK_ESCAPE])
 
 suite "tabs and the one instance":
   test "the tabs are saved":

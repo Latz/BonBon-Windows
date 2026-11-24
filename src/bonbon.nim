@@ -219,13 +219,14 @@ proc buildMenu() =
   addItem(windowMenu, "Minimize", ord cmdMinimize, "Ctrl+M")
   addItem(windowMenu, "Zoom", ord cmdZoom)
   let bar = CreateMenu()
-  addSubmenu(bar, appMenu, appName)
-  addSubmenu(bar, fileMenu, "File")
-  addSubmenu(bar, editMenu, "Edit")
-  addSubmenu(bar, viewMenu, "View")
-  addSubmenu(bar, historyMenu, "History")
-  addSubmenu(bar, bookmarksMenu, "Bookmarks")
-  addSubmenu(bar, windowMenu, "Window")
+  # the & marks the Alt+letter of each menu, Chrome's where it has the menu
+  addSubmenu(bar, appMenu, "B&onBon")
+  addSubmenu(bar, fileMenu, "&File")
+  addSubmenu(bar, editMenu, "&Edit")
+  addSubmenu(bar, viewMenu, "&View")
+  addSubmenu(bar, historyMenu, "Hi&story")
+  addSubmenu(bar, bookmarksMenu, "&Bookmarks")
+  addSubmenu(bar, windowMenu, "&Window")
   let old = GetMenu(hwndMain)
   discard SetMenu(hwndMain, bar)
   if old != 0: discard DestroyMenu(old)
@@ -264,6 +265,11 @@ proc pageKey(kind: int32, vk: UINT, lParam: int32): bool =
     if k.vk == int(vk) and k.ctrl == ctrl and k.shift == shift and k.alt == alt:
       discard PostMessageW(hwndMain, WM_COMMAND, WPARAM ord(k.cmd), 0)
       return true
+  let c = chr(int(vk) and 0xFF) # virtual-key codes are below 256
+  if kind == systemKeyDown and c in {'A'..'Z', '0'..'9'}:
+    # Alt+letter (a system key: Alt without Ctrl): the menu bar's, as if the window had the focus and not the page
+    discard PostMessageW(hwndMain, WM_SYSCOMMAND, SC_KEYMENU, LPARAM ord(toLowerAscii(c)))
+    return true
   false
 
 proc sendKeys(vks: openArray[int]) =
