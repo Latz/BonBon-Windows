@@ -7,7 +7,7 @@ import urls
 
 const
   appName* = "BonBon"
-  appVersion* = "0.6.56"
+  appVersion* = "1.0.0"
   fnameConfig = "config.json"
   maxUrlHistory* = 10000
 
