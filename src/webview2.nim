@@ -142,10 +142,13 @@ proc addScriptToExecuteOnDocumentCreated*(wv: pointer, js: string) = discard cal
 proc executeScript*(wv: pointer, js: string) = discard callPP(wv, 29, &(+$js), nil)
 proc postWebMessageAsJson*(wv: pointer, json: string) = discard callP(wv, 32, &(+$json))
 proc openDevToolsWindow*(wv: pointer) = discard call0(wv, 51)
-proc callDevToolsProtocolMethod*(wv: pointer, meth, paramsJson: string) =
-  ## a DevTools Protocol call on the page, its answer not needed
-  let done = handler(proc (a, b: pointer): HRESULT = S_OK)
-  discard cast[proc (this, m, p, h: pointer): HRESULT {.stdcall.}](fnAt(wv, 36))(wv, &(+$meth), &(+$paramsJson), done)
+proc callDevToolsProtocolMethod*(wv: pointer, meth, paramsJson: string, done: proc (json: string) = nil) =
+  ## a DevTools Protocol call on the page; done gets its answer, JSON, "" when it failed
+  let h = handler(proc (errorCode, resultJson: pointer): HRESULT =
+    if done != nil:
+      done(if cast[int32](errorCode) < 0 or resultJson == nil: "" else: $cast[WideCString](resultJson)) # resultJson is WebView2's, not ours to free
+    S_OK)
+  discard cast[proc (this, m, p, h: pointer): HRESULT {.stdcall.}](fnAt(wv, 36))(wv, &(+$meth), &(+$paramsJson), h)
 proc documentTitle*(wv: pointer): string =
   var p: LPWSTR
   discard callP(wv, 48, addr p)

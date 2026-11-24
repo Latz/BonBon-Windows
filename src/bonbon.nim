@@ -340,17 +340,37 @@ proc doCommand(id: int, hwnd = hwndMain, ctrl = ctrlMain) =
 
 # ---------------------------------------------------------------- Inspect
 
-const timerInspect = 0xB1
+const
+  timerInspect = 0xB1
+  # the click's guard: for a second the page swallows clicks and notes it did.
+  # With the picker on, the click never reaches the page; without it, it's
+  # swallowed here, so a link under it isn't followed, and Inspect tries again
+  inspectGuard = """(function () {
+    window.bonbonInspectMissed = false;
+    const types = ["mousedown", "mouseup", "click"];
+    const swallow = function (event) {
+      window.bonbonInspectMissed = true;
+      event.preventDefault ();
+      event.stopImmediatePropagation ();
+      };
+    types.forEach (function (t) {window.addEventListener (t, swallow, true);});
+    setTimeout (function () {types.forEach (function (t) {window.removeEventListener (t, swallow, true);});}, 1000);
+    })()"""
 
 var
   inspectX, inspectY = 0.0 ## the right-click, in the page
   inspectTicks = 0         ## tenths of a second since Inspect
-  inspectSeenAt = -1       ## the tick the DevTools window was there
-  flInspectWasOpen = false
+  inspectKeysAt = -1       ## the tick for the picker's keys, once the DevTools window is there
+  inspectFirstWait = 0     ## from the DevTools window to the keys: longer when it has to load
+  flInspectRetried = false
 
 proc devToolsWindow(): HWND =
-  ## the shell page's DevTools window; WebView2 titles it with the page's address
+  ## the shell page's DevTools window; WebView2 titles it with the page's
+  ## address, which it knows once its page is running
   FindWindowW(nil, "DevTools - " & urlShellPage["http://".len .. ^1])
+
+proc evaluate(js: string, done: proc (json: string) = nil) =
+  callDevToolsProtocolMethod(wvMain, "Runtime.evaluate", $(%*{"expression": js, "returnByValue": true}), done)
 
 proc clickInPage(x, y: float) =
   ## a click the page gets through the DevTools Protocol: no real mouse, so no
@@ -364,31 +384,41 @@ proc inspectAt(x, y: float) =
   ## WebView2 has no call for it, so it's done the way a person does it:
   ## DevTools' element picker (Ctrl+Shift+C), then a click on the spot
   if wvMain == nil: return
-  flInspectWasOpen = devToolsWindow() != 0
+  inspectFirstWait = if devToolsWindow() != 0: 3 else: 20
   openDevToolsWindow(wvMain)
   inspectX = x
   inspectY = y
   inspectTicks = 0
-  inspectSeenAt = -1
+  inspectKeysAt = -1
+  flInspectRetried = false
   discard SetTimer(hwndMain, timerInspect, 100, nil)
 
 proc inspectTick() =
   inc inspectTicks
   let dt = devToolsWindow()
-  if dt != 0 and inspectSeenAt < 0: inspectSeenAt = inspectTicks
-  if inspectTicks > 100 or (dt == 0 and inspectSeenAt >= 0): # 10 s without it, or it was closed
+  if inspectTicks > 150 or (dt == 0 and inspectKeysAt >= 0): # 15 s without it, or it was closed
     discard KillTimer(hwndMain, timerInspect)
     return
   if dt == 0: return
-  # shortcut: a fixed wait for DevTools to load; on a machine slower than that the picker isn't on yet and the click goes to the page; wait for a sign of DevTools being ready if that happens
-  let wait = if flInspectWasOpen: 3 else: 20
-  let step = inspectTicks - inspectSeenAt
-  if step == wait:
+  # shortcut: a fixed wait for DevTools to load, and one more try after it; slower than that, DevTools opens without the element (the guard keeps the click from the page). Wait for a sign of DevTools being ready if that happens
+  if inspectKeysAt < 0: inspectKeysAt = inspectTicks + inspectFirstWait
+  let step = inspectTicks - inspectKeysAt
+  if step == 0:
     discard SetForegroundWindow(dt)
     sendKeys([VK_CONTROL, VK_SHIFT, ord('C')], nil)
-  elif step == wait + 3:
-    discard KillTimer(hwndMain, timerInspect)
+  elif step == 3:
+    evaluate(inspectGuard)
     clickInPage(inspectX, inspectY)
+  elif step == 6:
+    discard KillTimer(hwndMain, timerInspect)
+    evaluate("window.bonbonInspectMissed === true", proc (json: string) =
+      # the page got the click, so the picker wasn't on yet: DevTools was still loading. Once more, a second later;
+      # if the keys did arrive, just late, this turns the picker off again, and DevTools shows without the element
+      let missed = try: parseJson(json){"result", "value"}.getBool except CatchableError: false
+      if missed and not flInspectRetried and devToolsWindow() != 0:
+        flInspectRetried = true
+        inspectKeysAt = inspectTicks + 10
+        discard SetTimer(hwndMain, timerInspect, 100, nil))
 
 proc showContextMenu(theParams: JsonNode) =
   ## the right-click menu, Chrome's: on a link, open it in a new tab or copy

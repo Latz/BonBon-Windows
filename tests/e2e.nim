@@ -337,8 +337,16 @@ suite "tabs and the one instance":
     while js("tabs.length").getInt > 1:
       app.choose("Close Tab")
       sleep 300
-    sleep 1500 # saveTabs waits a second after the last change
-    let saved = readFile(dataDir / "tabs.json")
+    # saveTabs writes a second after the last change, and a page still loading
+    # changes its tab later: wait until the file has been the same for 2 s
+    var saved = readFile(dataDir / "tabs.json")
+    var since = epochTime()
+    waitUntil("tabs.json to settle", proc (): bool =
+      let now = readFile(dataDir / "tabs.json")
+      if now != saved:
+        saved = now
+        since = epochTime()
+      epochTime() - since >= 2.0)
     app.choose("Close Tab")
     check app.waitForExit(10_000) == 0
     check readFile(dataDir / "tabs.json") == saved
