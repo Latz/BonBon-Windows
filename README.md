@@ -100,6 +100,8 @@ nimble e2e                       # builds build\bonbon.exe and drives the real a
 nim c -o:bonbon.exe src/bonbon.nim
 ```
 
+On every push, GitHub Actions builds the exe and runs the unit tests (`.github/workflows/ci.yml`); the built exe is attached to each run. The end-to-end tests need a desktop, so they run locally and in `nimble release`.
+
 The build reads `resources\` and `build\WebView2Loader.dll` into the exe, so change something there and build again. `WebView2Loader.dll` is the x64 one from the NuGet package [Microsoft.Web.WebView2](https://www.nuget.org/packages/Microsoft.Web.WebView2), folder `build/native/x64`. The vtable indexes in `src/webview2.nim` are counted from the `WebView2.h` of version 1.0.4370.26.
 
 The icon and the manifest are in `src/bonbon_res.o`. After changing `resources/bonbon.rc` or `resources/bonbon.manifest`, regenerate it:
