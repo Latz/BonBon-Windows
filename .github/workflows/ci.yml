@@ -1,0 +1,53 @@
+# Builds bonbon.exe and runs the unit tests on every push and pull request.
+# The end-to-end tests need a desktop to drive the app on, so they run at
+# home (nimble e2e) and in nimble release, not here.
+
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: jiro4989/setup-nim-action@v2
+        with:
+          nim-version: '2.2.8'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: winim
+        run: nimble install -y winim
+
+      - name: WebView2Loader.dll, which the exe carries (the SDK the vtable indexes are counted from)
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://www.nuget.org/api/v2/package/Microsoft.Web.WebView2/1.0.4370.26 -OutFile webview2.zip
+          Expand-Archive webview2.zip nuget
+          New-Item -ItemType Directory build -Force | Out-Null
+          Copy-Item nuget/build/native/x64/WebView2Loader.dll build/
+
+      - name: The WebView2 runtime, if the runner hasn't got it (a unit test looks for it)
+        shell: pwsh
+        run: |
+          $key = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\ClientState\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          if ((Get-ItemProperty $key -ErrorAction SilentlyContinue).EBWebView) {
+            "the runtime is there"
+          } else {
+            Invoke-WebRequest 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile webview2setup.exe
+            Start-Process .\webview2setup.exe -ArgumentList '/silent', '/install' -Wait
+          }
+
+      - name: Build
+        run: nim c --hints:off -o:build/bonbon.exe src/bonbon.nim
+
+      - name: Unit tests
+        run: nimble test
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bonbon.exe
+          path: build/bonbon.exe
