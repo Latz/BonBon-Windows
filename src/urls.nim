@@ -88,3 +88,7 @@ proc lastPathName*(s: string): string =
   let p = decodeURIComponent(urlPath(s))
   let ix = p.rfind('/')
   if ix < p.len - 1: p[ix + 1 .. ^1] else: ""
+
+proc isWebUrl*(s: string): bool =
+  ## an http or https address, the only kind the app hands to the reader's browser
+  isAbsoluteUrl(s) and urlScheme(s) in ["http", "https"]

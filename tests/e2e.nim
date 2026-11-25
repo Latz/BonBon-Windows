@@ -408,6 +408,18 @@ suite "downloads":
     check not fileExists(downloaded)
     check IsWindowEnabled(app.mainWindow) != 0
 
+  test "the window never leaves the shell: a link the page let through is a download in a frame, and the shell stays":
+    discard js("(() => { location.href = '" & base & "/attachment.bin'; return 1; })()")
+    var dialog: HWND
+    waitUntil("the Save As dialog", proc (): bool =
+      let ws = mainWindows(app.processID, "#32770")
+      if ws.len > 0: dialog = ws[0][0]
+      dialog != 0)
+    discard PostMessageW(dialog, WM_COMMAND, IDCANCEL, 0)
+    waitUntil("the dialog to close", proc (): bool = IsWindow(dialog) == 0)
+    check js("location.origin").getStr == "http://bonbon.example"
+    check js("typeof window.mdBrowser.getPage").getStr == "function"
+
 suite "tabs and the one instance":
   test "the tabs are saved":
     waitUntil("tabs.json", proc (): bool = fileExists(dataDir / "tabs.json") and "/second.md" in readFile(dataDir / "tabs.json"))

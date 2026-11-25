@@ -2369,7 +2369,7 @@ function addBookmarkCommand () {
 		alertDialog ("Can't add a bookmark because this tab has no page in it.");
 		}
 	else {
-		confirmDialog ("Add \"" + theTab.title + "\" to the Bookmarks menu?", function () {
+		confirmDialog ("Add \"" + encodeXml (String (theTab.title)) + "\" to the Bookmarks menu?", function () {
 			myBookmarksMenu.addAndEdit (theTab.title, {url: theTab.url});
 			});
 		}

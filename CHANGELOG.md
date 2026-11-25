@@ -1,26 +1,33 @@
-# Änderungen
+# Changes
+## 1.0.4
 
-Jede Version hat einen Abschnitt `## <Version>`. `nimble release` nimmt den Abschnitt der Version aus `bonbon.nimble` als Text für das Release auf GitHub.
+Security fixes, from an audit of the app.
+
+- **The window never leaves the shell.** A server could answer the download page's link with an HTML page instead of the file, and that page took the shell's place, with all of BonBon's calls at its disposal: the history, the bookmarks, the tabs, and requests to any address, the reader's own network included. Now a navigation away from the shell is stopped. A file still downloads, with the Save As dialog; a page goes nowhere.
+- **The app answers only the shell.** A message from any other page is ignored, and the bridge isn't set up in one.
+- `window.open` and a middle-click open the reader's default browser, not a bare WebView2 window.
+- **A page's title can't run script.** It was put into the Add Bookmark dialog as HTML; now it's text.
+- **No answer is read past 50 MB.** A server that never stops sending used to fill the memory until the app crashed; now it's an error message.
 
 ## 1.0.3
 
-- **Eine einzige Datei.** `bonbon.exe` bringt alles mit, was sie braucht. `WebView2Loader.dll` und der Ordner `resources` neben der exe entfallen.
-- Die App findet die WebView2-Runtime selbst, so wie es `WebView2Loader.dll` tut. Falls das einmal nicht klappt, nimmt sie die echte `WebView2Loader.dll`, die sie ebenfalls mitbringt.
-- Ihre eigenen Dateien packt die App beim ersten Start einer neuen Version nach `%LOCALAPPDATA%\BonBon\resources` aus. Das ist nur ein Zwischenspeicher, den man gefahrlos löschen kann.
-- Der About-Dialog nennt das Original und seine MIT-Lizenz.
+- **A single file.** `bonbon.exe` carries everything it needs. `WebView2Loader.dll` and the `resources` folder next to the exe are gone.
+- The app finds the WebView2 runtime itself, the way `WebView2Loader.dll` does. If that ever fails, it uses the real `WebView2Loader.dll`, which it also carries.
+- On the first start of a new version, the app unpacks its own files to `%LOCALAPPDATA%\BonBon\resources`. That's only a cache and can safely be deleted.
+- The About dialog names the original and its MIT license.
 
 ## 1.0.2
 
-- Wiederholen (Redo) zeigt im Bearbeiten-Menü Strg+Umschalt+Z, wie im Original. Strg+Y wiederholt in der Seite weiterhin.
+- Redo shows Ctrl+Shift+Z in the Edit menu, as in the original. Ctrl+Y still redoes in the page.
 
 ## 1.0.1
 
-- Strg+Klick auf einen Link oder ein Lesezeichen der Leiste öffnet es in einem neuen Tab, wie Cmd+Klick auf dem Mac. Bisher ging das unter Windows nur über das Rechtsklick-Menü.
-- Die Dokumentation (README, docs, download) ist an Windows angepasst.
+- Ctrl+click on a link or a bookmark in the bar opens it in a new tab, like Cmd+click on the Mac. On Windows this used to work only through the right-click menu.
+- The documentation (README, docs, download) is adapted to Windows.
 
 ## 1.0.0
 
-- Die erste Windows-Version: die Oberfläche von BonBon 0.6.56 unverändert, in WebView2, mit einer kleinen nativen App in Nim statt Electron.
-- Tabs, Verlauf, Lesezeichen mit Editor und Lesezeichenleiste, fünf Stylesheets, Suchen auf der Seite, Markdown-Quelltext, PDFs im Tab, Seiten-Handler (JSON, JS).
-- Menüleiste mit Tastenkürzeln und Alt+Buchstabe, auch im Quelltextfenster; View Source in eigenem Fenster, auch für Quellen über 2 MB; Inspect auf dem Element unter dem Rechtsklick.
-- Nur eine laufende Instanz: ein zweiter Start oder ein `bon://`-Link öffnet die Adresse als neuen Tab im offenen Fenster.
+- The first Windows version: BonBon 0.6.56's interface unchanged, in WebView2, with a small native app in Nim instead of Electron.
+- Tabs, history, bookmarks with an editor and a bookmarks bar, five stylesheets, find in page, Markdown source, PDFs in the tab, page handlers (JSON, JS).
+- A menu bar with shortcuts and Alt+letter, in the source window too; View Source in its own window, also for sources over 2 MB; Inspect on the element under the right-click.
+- Only one running instance: a second start or a `bon://` link opens the address as a new tab in the open window.

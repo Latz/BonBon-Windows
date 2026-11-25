@@ -16,13 +16,11 @@ It's an app that runs on MacOs and Linux.
 
 ### Who
 
-I am Dave Winer, the developer of BonBon, with the help of Claude Code.
-
-This doc, and all other docs on this site were written by humans, unless otherwise stated.
+Dave Winer developed BonBon, with the help of Claude Code. I ported the code to Windows, using Claude, too.
 
 ### How to
 
-To get started, get the app from the [Download page](download/).
+To get started, get the program from the [Download page](download/).
 
 ### Docs
 
@@ -36,46 +34,13 @@ What we really need are a few simple desktop apps that publish Markdown files to
 
 ### Questions, comments
 
-We're using the [issues section](https://github.com/scripting/bonBon/issues) of the GitHub repository for support.
-
-### Where we're going
-
-We're going to keep developing BonBon, and will work with developers who want to produce products that interop.
+Use the [issues section](https://github.com/scripting/bonBon/issues) of the GitHub repository for support.
 
 ## The Windows version
 
 BonBon for Windows is a port of BonBon 0.6.56. Questions about BonBon itself belong in the original's issues. This repository is for problems that only happen on Windows.
 
-### How it's built
-
-The interface is the original's, unchanged. `index.html`, `index.js`, `index.css`, the stylesheets, marked, js-yaml and DOMPurify are in `resources/app`. They run in WebView2, the browser engine from Edge that comes with Windows.
-
-What `main.js` and `preload.js` do in Electron is done here by a small app in [Nim](https://nim-lang.org): windows, menus, files in the data folder, and the requests. Requests go through WinHTTP, so the Windows certificate store applies; see "WHOSE CERTIFICATES" in the original's `pageRequests.js`. The app is a single `bonbon.exe` of about 3 MB, compared with roughly 200 MB for an Electron app.
-
-### Changes from the original
-
-Added or changed for Windows:
-
-- **One file.** `bonbon.exe` carries everything it needs: the original's interface, the stylesheets, the handlers and the seed of `config.json`. On its first start, and after an update, it unpacks them to `%LOCALAPPDATA%\BonBon\resources`. It finds the WebView2 runtime on its own, the way `WebView2Loader.dll` does, so it needs no DLL beside it. If that ever fails, it falls back to the real `WebView2Loader.dll`, which it also carries.
-- **New versions.** A few seconds after it starts, BonBon asks GitHub for the latest release of the Windows version. If it's newer, a dialog says so and offers to open its download page. Each version is offered only once. To turn this off, set `"flCheckForUpdates": false` in `config.json`.
-- **Window place.** BonBon opens where it was closed, at the same size, maximized if it was. If that place is on a screen that's no longer there, it opens in the middle, at the size in `config.json`. The original always opens in the middle.
-- **Menus.** The menu bar uses Windows conventions. Alt opens it, and Alt plus a letter opens one menu, even when the page has the focus: Alt+F File, Alt+E Edit, Alt+V View, Alt+S History, Alt+B Bookmarks, Alt+W Window, Alt+O BonBon. AltGr still types characters such as `@`.
-- **Ctrl-click.** Ctrl-click on a link, or on an item in the bookmarks bar, opens it in a new tab behind the current one, as Cmd-click does on a Mac. The original asks for the Mac's Cmd key, which on Windows is the Windows key, so the bridge counts Ctrl as Cmd for mouse clicks.
-- **View Source windows.** They have the same menu bar as the main window, as every Electron window has the application menu. Edit and Window act on the source window; all other commands act on the main window. A source window has no context menu and no browser keys such as Ctrl+P, as in Electron. Sources over 2 MB are shown too.
-- **Inspect.** Inspect on the right-click menu opens DevTools with the element under the pointer selected. WebView2 has no call for this. BonBon turns on DevTools' element picker and clicks the spot. If DevTools is slow to load, BonBon tries again once. If that also fails, DevTools opens without a selection, and the click never reaches the page.
-- **One instance.** Only one BonBon runs at a time. A second launch, or a `bon://` link, opens its address in a new tab in the running app. On Windows the original starts a new copy each time.
-- **Closing.** Closing the main window also closes any View Source windows and quits. Electron keeps the source windows open.
-- **Version.** The app reports its own version, starting at 1.0.0, in the window's corner, the About box and the User-Agent.
-- **Redo** shows Ctrl+Shift+Z in the Edit menu, as in the original. Ctrl+Y redoes too, in the page.
-
-Differences that remain:
-
-- **Page handlers.** They run in an invisible frame that is sealed off by `sandbox` and a Content Security Policy. The original runs them in a hidden window with a session of its own. The original's third safeguard, cancelling every request from that session, is missing here.
-- **Addresses.** The shell page is served from `http://bonbon.example/`, and the data folder's stylesheets from `http://stylesheets.bonbon.example/`. Because of that, localStorage starts fresh, so the chosen stylesheet and the sidebar state are not carried over from the Electron version.
-- **Compression.** WinHTTP unpacks gzip and deflate but not Brotli. A page a server sends with `Content-Encoding: br` without being asked arrives unreadable.
-- **Closing the last tab.** The page's `window.close ()` is passed to the app through the bridge, because Chromium won't let a page close its window.
-
-## Installing
+### 
 
 1. Download [bonbon.exe](https://github.com/Latz/BonBon-Windows/releases/latest/download/bonbon.exe), the latest version, and put it anywhere. Every version is also on the [Releases page](https://github.com/Latz/BonBon-Windows/releases), and [windows.zip](https://github.com/Latz/BonBon-Windows/releases/latest/download/windows.zip) has the same exe with the license beside it.
 2. Run `bonbon.exe`. The first time, Windows may say "Windows protected your PC", because the app isn't signed. Click "More info", then "Run anyway".
@@ -86,52 +51,8 @@ BonBon needs the WebView2 Runtime, which Windows 10 and 11 usually already have.
 
 BonBon keeps its data in `%APPDATA%\BonBon`. That's the same folder the Electron version uses on Windows, so tabs, bookmarks and history carry over. The folder holds `config.json`, `tabs.json`, `bookmarks.opml`, `history.json`, `urlHistory.json`, `windowsPrefs.json` (the window's place), `stylesheets\` and `handlers\`. WebView2 keeps its own data, including the page's localStorage, in `EBWebView\`.
 
-The app's own files are unpacked to `%LOCALAPPDATA%\BonBon\resources`, one folder per build. That folder is only a cache: deleting it is harmless, and the next start unpacks it again.
+The program's own files are unpacked to `%LOCALAPPDATA%\BonBon\resources`, one folder per build. That folder is only a cache: deleting it is harmless, and the next start unpacks it again.
 
 On start, the app registers itself for `bon://` links under `HKCU\Software\Classes\bon`.
 
-## Building
-
-```
-nimble install winim
-nimble test                      # unit tests (some need the internet)
-nimble e2e                       # builds build\bonbon.exe and drives the real app (needs a desktop and WebView2)
-                                 # with BONBON_E2E_REAL_INPUT=1 also the test that uses the real mouse and keyboard
-nim c -o:bonbon.exe src/bonbon.nim
-```
-
-On every push, GitHub Actions builds the exe and runs the unit tests (`.github/workflows/ci.yml`); the built exe is attached to each run. The end-to-end tests need a desktop, so they run locally and in `nimble release`.
-
-The build reads `resources\` and `build\WebView2Loader.dll` into the exe, so change something there and build again. `WebView2Loader.dll` is the x64 one from the NuGet package [Microsoft.Web.WebView2](https://www.nuget.org/packages/Microsoft.Web.WebView2), folder `build/native/x64`. The vtable indexes in `src/webview2.nim` are counted from the `WebView2.h` of version 1.0.4370.26.
-
-The icon and the manifest are in `src/bonbon_res.o`. After changing `resources/bonbon.rc` or `resources/bonbon.manifest`, regenerate it:
-
-```
-cd resources && windres -F pe-x86-64 bonbon.rc -O coff -o ../src/bonbon_res.o
-```
-
-## Releasing
-
-1. Raise the version in its three places: `version` in `bonbon.nimble`, `appVersion` in `src/datafolder.nim`, and the `assemblyIdentity` in `resources/bonbon.manifest`. Then regenerate `src/bonbon_res.o` as above.
-2. Write the version's section in `CHANGELOG.md`: `## 1.2.3` and what's new.
-3. Commit and push to `main`.
-4. `nimble release`.
-
-`nimble release` stops if the three versions differ, if you're not on `main` or have changes that aren't committed or pushed, if the tag exists already, or if `CHANGELOG.md` has no section for the version. Then it runs the unit and end-to-end tests, builds the exe into `dist\`, and publishes it on GitHub as `bonbon.exe`, `windows.zip` and `BonBon-<version>-windows-x64.zip`, with the checksums. The release's text is the `CHANGELOG.md` section. `nimble dryrelease` does all of that except publishing, and only warns about the git checks, so you can try it on any branch.
-
-## Files
-
-| File | In the original |
-|---|---|
-| `resources/app/` | index.html, index.js, index.css, stylesheets, marked, js-yaml, DOMPurify (copied unchanged) |
-| `src/bridge.js` | preload.js, plus frontMatter.js, markdownConverter.js and the handler sandbox from pageHandlers.js |
-| `src/bonbon.nim` | main.js (windows, menus, `window.mdBrowser` calls, View Source, Inspect, PDFs, bon://) |
-| `src/requests.nim` | pageRequests.js |
-| `src/datafolder.nim` | data folder, config.json, finding handlers |
-| `src/workers.nim` | background threads for the requests |
-| `src/webview2.nim` | the WebView2 COM calls BonBon uses, and finding the runtime |
-| `src/embedded.nim` | `resources\` and WebView2Loader.dll inside the exe, unpacked on the first start |
-
-## License
-
-BonBon is under the MIT License, copyright 2026 Dave Winer: see [LICENSE](LICENSE), the original's. `resources/LICENSE` is a different file: Electron's license, which came along from the Electron build.
+BonBon-Windows is under the MIT License, copyright 2026 by Latz: see [LICENSE](LICENSE)

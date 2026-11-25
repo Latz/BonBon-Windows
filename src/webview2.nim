@@ -229,10 +229,42 @@ proc documentTitle*(wv: pointer): string =
   discard callP(wv, 48, addr p)
   takeString(p)
 
-proc onWebMessageReceived*(wv: pointer, fn: proc (json: string)) =
+proc onWebMessageReceived*(wv: pointer, fn: proc (source, json: string)) =
+  ## source: the address of the document that sent it
   addEvent(wv, 34, proc (sender, args: pointer): HRESULT =
-    var p: LPWSTR
+    var src, p: LPWSTR
+    discard callP(args, 3, addr src) # get_Source
     discard callP(args, 4, addr p) # get_WebMessageAsJson
+    fn(takeString(src), takeString(p))
+    S_OK)
+
+proc onNavigationStarting*(wv: pointer, fn: proc (uri: string): bool) =
+  ## a top-level navigation; fn answers false to cancel it
+  addEvent(wv, 7, proc (sender, args: pointer): HRESULT = # add_NavigationStarting
+    var p: LPWSTR
+    discard callP(args, 3, addr p) # get_Uri
+    if not fn(takeString(p)): discard callB(args, 8, true) # put_Cancel
+    S_OK)
+
+const permissionMultipleDownloads* = 7'i32 ## COREWEBVIEW2_PERMISSION_KIND_MULTIPLE_AUTOMATIC_DOWNLOADS
+
+proc onPermissionRequested*(wv: pointer, fn: proc (uri: string, kind: int32): bool) =
+  ## fn answers true to allow it; otherwise WebView2 decides, as before
+  addEvent(wv, 23, proc (sender, args: pointer): HRESULT = # add_PermissionRequested
+    var p: LPWSTR
+    var kind: int32
+    discard callP(args, 3, addr p) # get_Uri
+    discard callP(args, 4, addr kind) # get_PermissionKind
+    if fn(takeString(p), kind):
+      discard cast[proc (this: pointer, state: int32): HRESULT {.stdcall.}](fnAt(args, 7))(args, 1) # put_State ALLOW
+    S_OK)
+
+proc onNewWindowRequested*(wv: pointer, fn: proc (uri: string)) =
+  ## window.open, a middle-click: no WebView2 popup, fn gets the address
+  addEvent(wv, 44, proc (sender, args: pointer): HRESULT = # add_NewWindowRequested
+    var p: LPWSTR
+    discard callP(args, 3, addr p) # get_Uri
+    discard callB(args, 6, true) # put_Handled
     fn(takeString(p))
     S_OK)
 

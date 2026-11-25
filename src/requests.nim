@@ -56,6 +56,7 @@ var reqOptions* = (
   cacheMinutes: -1,                 # -1: kept as long as the app runs
   maxTwinSearchBytes: 64 * 1024,
   maxPdfBytes: 30 * 1024 * 1024,
+  maxResponseBytes: 50 * 1024 * 1024, ## no answer is read past this, so a server that never stops can't fill the memory
   ctSecsTimeout: 30
 )
 
@@ -275,6 +276,10 @@ proc httpGet*(theUrl: string, acceptHeader = "text/markdown", flHeadersOnly = fa
     result.body.setLen old + int(got)
     copyMem(addr result.body[old], addr buf[0], int(got))
     if maxBodyBytes > 0 and result.body.len >= maxBodyBytes: break
+    if result.body.len > reqOptions.maxResponseBytes:
+      result.err = "Can't get " & theUrl & " because it's larger than " & $(reqOptions.maxResponseBytes div (1024 * 1024)) & " MB."
+      result.body = ""
+      return
 
 # ---------------------------------------------------------------- the charter's rules
 

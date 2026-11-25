@@ -88,6 +88,12 @@ suite "httpGet":
     check r2.body.len == 0
   test "reading stops at maxBodyBytes":
     check httpGet(base & "/archive.zip", "*/*", false, nil, 1000).body.len < 100_000
+  test "an answer larger than maxResponseBytes is an error, not a body":
+    let saved = reqOptions.maxResponseBytes
+    reqOptions.maxResponseBytes = 1000
+    let r = httpGet(base & "/archive.zip", "*/*")
+    reqOptions.maxResponseBytes = saved
+    check r.body.len == 0 and r.err.endsWith("because it's larger than 0 MB.")
   test "Content-Location is made whole":
     check httpGet(base & "/folder/").contentLocation == base & "/folder/readme.md"
 

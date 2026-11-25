@@ -63,18 +63,18 @@ $shaExe = Get-Sha256 "$dist\bonbon.exe"
 $shaZip = Get-Sha256 $zip
 
 $notes = @"
-BonBon für Windows, ein Browser für ein Web aus Markdown-Dateien: die Oberfläche von BonBon 0.6.56 (Dave Winer, MIT) unverändert, in WebView2, mit einer kleinen nativen App in Nim statt Electron.
+BonBon for Windows, a browser for a web made of Markdown files: the interface of BonBon 0.6.56 (Dave Winer, MIT) unchanged, in WebView2, with a small native app in Nim instead of Electron.
 
-## Neu in $version
+## What's new in $version
 
 $news
 
 ## Installation
 
-1. ``bonbon.exe`` herunterladen, irgendwo hinlegen und starten. ``windows.zip`` und ``BonBon-$version-windows-x64.zip`` enthalten dieselbe exe, mit der Lizenz daneben.
-2. Beim ersten Start sagt Windows womöglich „Der Computer wurde durch Windows geschützt“, weil die App nicht signiert ist: „Weitere Informationen“, dann „Trotzdem ausführen“.
+1. Download ``bonbon.exe``, put it anywhere and run it. ``windows.zip`` and ``BonBon-$version-windows-x64.zip`` hold the same exe, with the license beside it.
+2. On the first start Windows may say "Windows protected your PC" because the app isn't signed: click "More info", then "Run anyway".
 
-Die neueste Version gibt es immer unter https://github.com/Latz/BonBon-Windows/releases/latest/download/bonbon.exe und https://github.com/Latz/BonBon-Windows/releases/latest/download/windows.zip. Windows 10 und 11 bringen die nötige WebView2-Runtime in der Regel schon mit; sonst gibt es sie bei [Microsoft](https://developer.microsoft.com/microsoft-edge/webview2/).
+The latest version is always at https://github.com/Latz/BonBon-Windows/releases/latest/download/bonbon.exe and https://github.com/Latz/BonBon-Windows/releases/latest/download/windows.zip. Windows 10 and 11 usually come with the WebView2 runtime it needs; if not, it's available from [Microsoft](https://developer.microsoft.com/microsoft-edge/webview2/).
 
 SHA-256:
 - ``bonbon.exe``: ``$shaExe``
@@ -91,5 +91,5 @@ if ($DryRun) {
 	exit 0
 }
 Invoke-Step gh @('release', 'create', $tag, "$dist\bonbon.exe", "$dist\windows.zip", $zip,
-	'--target', (git rev-parse HEAD), '--title', "BonBon für Windows $version", '--notes-file', $notesFile, '--latest')
+	'--target', (git rev-parse HEAD), '--title', "BonBon for Windows $version", '--notes-file', $notesFile, '--latest')
 Write-Host "release: $tag is published" -ForegroundColor Green

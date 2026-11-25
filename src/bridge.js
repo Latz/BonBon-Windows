@@ -15,7 +15,7 @@
 	markers are.  */
 
 (function () {
-	if ((window !== window.top) || (window.chrome === undefined) || (window.chrome.webview === undefined)) {
+	if ((window !== window.top) || (location.origin !== "http://bonbon.example") || (window.chrome === undefined) || (window.chrome.webview === undefined)) { //the shell's alone: a page that took its place gets no bridge (bonbon.exe checks too)
 		return;
 		}
 	const webview = window.chrome.webview;

@@ -24,3 +24,9 @@ suite "urls":
     check encodeURIComponent("a b&c") == "a%20b%26c"
     check lastPathName("https://a.com/files/My%20File.zip") == "My File.zip"
     check lastPathName("https://a.com/files/") == ""
+  test "isWebUrl, and an origin that only looks like another":
+    check isWebUrl("https://a.com/x") and isWebUrl("HTTP://a.com")
+    check not isWebUrl("file:///C:/x.html") and not isWebUrl("javascript:alert(1)") and not isWebUrl("nonsense")
+    check urlOrigin("http://bonbon.example/index.html") == "http://bonbon.example"
+    check urlOrigin("http://bonbon.example.evil.com/") != "http://bonbon.example"
+    check urlOrigin("http://bonbon.example@evil.com/") != "http://bonbon.example"

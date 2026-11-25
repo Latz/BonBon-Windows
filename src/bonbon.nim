@@ -74,6 +74,8 @@ var
 
 # ---------------------------------------------------------------- talking to the page
 
+proc isShellUrl(u: string): bool = urlOrigin(u) == "http://" & hostApp ## the shell page's own files
+
 proc post(j: JsonNode) =
   if wvMain != nil: postWebMessageAsJson(wvMain, $j)
 
@@ -835,7 +837,22 @@ proc startPage() =
       setVirtualHostNameToFolderMapping(wvMain, hostApp, resourcesFolder() / "app")
       setVirtualHostNameToFolderMapping(wvMain, hostStylesheets, stylesheetsFolder())
       addScriptToExecuteOnDocumentCreated(wvMain, bridgeScript)
-      onWebMessageReceived(wvMain, pageCall)
+      onWebMessageReceived(wvMain, proc (source, json: string) =
+        if isShellUrl(source): pageCall(json)) # the bridge is the shell's alone, not a page's that took its place
+      onNavigationStarting(wvMain, proc (uri: string): bool =
+        # the window never leaves the shell. A link that got past it (the download page's) goes to a frame
+        # nobody sees: a file is a download there, Save As and all; a page there can't reach the bridge
+        if isShellUrl(uri): return true
+        if isWebUrl(uri):
+          executeScript(wvMain, "(() => { const f = document.createElement ('iframe'); f.style.display = 'none'; f.src = " &
+            $(%uri) & "; document.body.appendChild (f); setTimeout (() => f.remove (), 60000); })()")
+        false)
+      onPermissionRequested(wvMain, proc (uri: string, kind: int32): bool =
+        # that frame has no click of the reader's in it, so Chromium would let only the first such download through;
+        # each one still asks where to save it
+        kind == permissionMultipleDownloads and isShellUrl(uri))
+      onNewWindowRequested(wvMain, proc (uri: string) =
+        if isWebUrl(uri): openShell(uri))
       onDocumentTitleChanged(wvMain, proc () = discard SetWindowTextW(hwndMain, documentTitle(wvMain)))
       onAcceleratorKeyPressed(ctrl, pageKeys(hwndMain))
       onDownloadStarting(wvMain, downloadStarting)
