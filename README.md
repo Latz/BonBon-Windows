@@ -40,7 +40,7 @@ Use the [issues section](https://github.com/scripting/bonBon/issues) of the GitH
 
 BonBon for Windows is a port of BonBon 0.6.56. Questions about BonBon itself belong in the original's issues. This repository is for problems that only happen on Windows.
 
-### 
+### Installing
 
 1. Download [bonbon.exe](https://github.com/Latz/BonBon-Windows/releases/latest/download/bonbon.exe), the latest version, and put it anywhere. Every version is also on the [Releases page](https://github.com/Latz/BonBon-Windows/releases), and [windows.zip](https://github.com/Latz/BonBon-Windows/releases/latest/download/windows.zip) has the same exe with the license beside it.
 2. Run `bonbon.exe`. The first time, Windows may say "Windows protected your PC", because the app isn't signed. Click "More info", then "Run anyway".
